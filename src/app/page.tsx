@@ -2,6 +2,8 @@
 
 import { fetchGitHubGraphQL } from "../../lib/github";
 import { useState } from "react";
+import RepoCard from "./RepoCard";
+import ProfileStats from "./ProfileStats";
 
 export default function Home() {
   const [username, setUsername] = useState("");
@@ -21,7 +23,12 @@ export default function Home() {
           repositories(first: 10, orderBy: {field: STARGAZERS, direction: DESC}) {
             nodes {
               name
+              description
+              url
               stargazerCount
+              forkCount
+              createdAt
+              updatedAt
               primaryLanguage {
                 name
                 color
@@ -39,6 +46,7 @@ export default function Home() {
         setProfile(null);
       } else {
         setProfile(data.user);
+        console.log("Profile data:", data.user);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -50,38 +58,48 @@ export default function Home() {
   };
 
   return (
-    <main className="p-8">
-      <h1 className="text-3xl font-bold">GitHub Profile Analyzer</h1>
-      <input
-        type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        placeholder="Enter GitHub username"
-        className="p-2 border-2 border-gray-400 rounded-md"
-      />
-      <button
-        onClick={fetchProfile}
-        className="ml-4 p-2 bg-blue-500 text-white rounded-md"
-      >
-        Analyze
-      </button>
+    <main className="p-8 max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mb-4">GitHub Profile Analyzer</h1>
+
+      <div className="flex items-center mb-4 gap-2">
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Enter GitHub username"
+          className="p-2 border-2 border-gray-400 rounded-md w-full"
+        />
+        <button
+          onClick={fetchProfile}
+          className="p-2 bg-blue-500 text-white rounded-md"
+        >
+          {loading ? "Loading..." : "Analyze"}
+        </button>
+      </div>
+
+      {error && <p className="text-red-500">{error}</p>}
 
       {profile && (
-        <div className="mt-4">
-          <h2 className="text-xl font-semibold">{profile.name}</h2>
-          <img
-            src={profile.avatarUrl}
-            alt={profile.name}
-            className="w-24 h-24 rounded-full"
-          />
-          <ul>
+        <div className="mt-6">
+          <div className="flex items-center gap-4 mb-4">
+            <img
+              src={profile.avatarUrl}
+              alt={profile.name}
+              className="w-20 h-20 rounded-full"
+            />
+            <h2 className="text-2xl font-semibold">{profile.name}</h2>
+          </div>
+
+          {/* 📊 Charts */}
+          <ProfileStats repos={profile.repositories.nodes} />
+
+          {/* 📦 Repo Cards */}
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold mb-2">Top Repositories</h3>
             {profile.repositories.nodes.map((repo: any) => (
-              <li key={repo.name} className="mt-2">
-                <span className="font-medium">{repo.name}</span> (
-                {repo.stargazerCount} stars) - {repo.primaryLanguage?.name}
-              </li>
+              <RepoCard key={repo.name} repo={repo} />
             ))}
-          </ul>
+          </div>
         </div>
       )}
     </main>
