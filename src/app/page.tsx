@@ -20,7 +20,7 @@ export default function Home() {
         user(login: $login) {
           name
           avatarUrl
-          repositories(first: 10, orderBy: {field: STARGAZERS, direction: DESC}) {
+          repositories(first: 100, orderBy: {field: STARGAZERS, direction: DESC}) {
             nodes {
               name
               description
@@ -96,9 +96,12 @@ export default function Home() {
           {/* 📦 Repo Cards */}
           <div className="mt-6">
             <h3 className="text-xl font-semibold mb-2">Top Repositories</h3>
-            {profile.repositories.nodes.map((repo: any) => (
-              <RepoCard key={repo.name} repo={repo} />
-            ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+              {" "}
+              {profile.repositories.nodes.map((repo: any) => (
+                <RepoCard key={repo.name} repo={repo} />
+              ))}
+            </div>
           </div>
         </div>
       )}
