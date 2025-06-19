@@ -1,9 +1,24 @@
-"use client"
+"use client";
 
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts"
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
-const contributionData = [
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+
+export const description = "A line chart";
+
+const chartData = [
   { date: "Jan", contributions: 23 },
   { date: "Feb", contributions: 45 },
   { date: "Mar", contributions: 67 },
@@ -16,34 +31,71 @@ const contributionData = [
   { date: "Oct", contributions: 65 },
   { date: "Nov", contributions: 87 },
   { date: "Dec", contributions: 54 },
-]
+];
+
+const chartConfig = {
+  desktop: {
+    label: "Desktop",
+    color: "var(--chart-1)",
+  },
+} satisfies ChartConfig;
 
 export function ContributionChart() {
   return (
-    <ChartContainer
-      config={{
-        contributions: {
-          label: "Contributions",
-          color: "hsl(var(--chart-1))",
-        },
-      }}
-      className="h-[300px]"
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={contributionData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Line
-            type="monotone"
-            dataKey="contributions"
-            stroke="var(--color-contributions)"
-            strokeWidth={2}
-            dot={{ fill: "var(--color-contributions)" }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </ChartContainer>
-  )
+    <Card>
+      <CardContent className="flex h-[300px] items-center justify-center">
+        <ChartContainer config={chartConfig} className="h-[300px] w-full">
+          <LineChart
+            accessibilityLayer
+            data={chartData}
+            margin={{
+              left: 12,
+              right: 12,
+            }}
+          >
+            {/* Add Cartesian Grid */}
+            <CartesianGrid
+              strokeDasharray="5 5" // Dashed grid lines
+              stroke="#e8e4e3" // Grid line color
+              horizontal={true} // Show horizontal grid lines
+              vertical={true} // Show vertical grid lines
+            />
+
+            {/* Add X-Axis */}
+            <XAxis
+              dataKey="date"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={(value) => value.slice(0, 3)}
+            />
+
+            {/* Add Y-Axis */}
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              domain={[0, 100]} // Set the range of the y-axis
+              ticks={[0, 25, 50, 75, 100]} // Custom tick values
+            />
+
+            {/* Tooltip */}
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
+            />
+
+            {/* Line */}
+            <Line
+              dataKey="contributions"
+              type="natural"
+              stroke="var(--color-desktop)"
+              strokeWidth={2}
+              dot={false}
+            />
+          </LineChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
 }
