@@ -92,6 +92,7 @@ export default function ProfileAnalysisPage({
 }) {
   const { username } = React.use(params);
   const [profileData, setProfileData] = useState<any>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,7 +155,14 @@ export default function ProfileAnalysisPage({
           setProfileData(null);
         } else {
           const user = data.user;
+          const contributionCalendar =
+            data.user.contributionsCollection.contributionCalendar;
 
+          // Generate chartData
+          const chartData = generateChartData(contributionCalendar);
+
+          // Pass chartData to ContributionChart
+          setChartData(chartData);
           // Map the fetched data to the structure of `profileData`
           const mappedProfileData = {
             username: user.username,
@@ -209,6 +217,7 @@ export default function ProfileAnalysisPage({
           };
 
           setProfileData(mappedProfileData);
+          console.log("Profile Data:", data);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -222,6 +231,44 @@ export default function ProfileAnalysisPage({
     fetchProfile();
   }, [username]);
 
+  function generateChartData(contributionCalendar) {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    // Initialize an object to store contributions by month
+    const monthlyContributions = Array(12).fill(0);
+
+    // Loop through weeks and aggregate contributions by month
+    contributionCalendar.weeks.forEach((week, weekIndex) => {
+      week.contributionDays.forEach((day, dayIndex) => {
+        const approximateDate = new Date();
+        approximateDate.setDate(1); // Start at the first day of the month
+        approximateDate.setMonth(weekIndex); // Use the week index to approximate the month
+        const month = approximateDate.getMonth(); // Get the month (0-11)
+        monthlyContributions[month] += day.contributionCount; // Add contributions to the corresponding month
+      });
+    });
+console.log("Monthly Contributions:", monthlyContributions);
+    // Generate chartData from monthlyContributions
+    const chartData = months.map((month, index) => ({
+      date: month,
+      contributions: monthlyContributions[index],
+    }));
+
+    return chartData;
+  }
   const calculateContributionStreak = (weeks: any[]) => {
     let streak = 0;
     let maxStreak = 0;
@@ -454,7 +501,7 @@ export default function ProfileAnalysisPage({
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ContributionChart />
+                    <ContributionChart  chartData={chartData}/>
                   </CardContent>
                 </Card>
 
@@ -495,7 +542,7 @@ export default function ProfileAnalysisPage({
                       Detailed activity breakdown over time
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="w-full">
                     <ActivityChart />
                   </CardContent>
                 </Card>

@@ -19,18 +19,18 @@ export function ActivityChart() {
       config={{
         commits: {
           label: "Commits",
-          color: "hsl(var(--chart-1))",
+          color: "#4e9aa3",
         },
         prs: {
           label: "Pull Requests",
-          color: "hsl(var(--chart-2))",
+          color: "#eb8c34",
         },
         issues: {
           label: "Issues",
-          color: "hsl(var(--chart-3))",
+          color: "#3c4d75",
         },
       }}
-      className="h-[300px]"
+      className="h-[300px] w-full"
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={activityData}>
@@ -44,5 +44,5 @@ export function ActivityChart() {
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>
-  )
+  );
 }

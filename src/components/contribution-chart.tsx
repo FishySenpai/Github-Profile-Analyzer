@@ -39,15 +39,15 @@ const chartConfig = {
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
-
-export function ContributionChart() {
+export function ContributionChart(chartData) {
+  console.log("ContributionChart", chartData);
   return (
     <Card>
       <CardContent className="flex h-[300px] items-center justify-center">
         <ChartContainer config={chartConfig} className="h-[300px] w-full">
           <LineChart
             accessibilityLayer
-            data={chartData}
+            data={chartData.chartData}
             margin={{
               left: 12,
               right: 12,
