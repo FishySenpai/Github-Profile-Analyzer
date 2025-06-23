@@ -3,22 +3,9 @@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts"
 
-const commitData = [
-  { month: "Jan", commits: 45 },
-  { month: "Feb", commits: 52 },
-  { month: "Mar", commits: 48 },
-  { month: "Apr", commits: 61 },
-  { month: "May", commits: 55 },
-  { month: "Jun", commits: 67 },
-  { month: "Jul", commits: 72 },
-  { month: "Aug", commits: 58 },
-  { month: "Sep", commits: 63 },
-  { month: "Oct", commits: 71 },
-  { month: "Nov", commits: 69 },
-  { month: "Dec", commits: 54 },
-]
 
-export function CommitChart() {
+export function CommitChart({commitData}) {
+  console.log("CommitChart data:", commitData);
   return (
     <ChartContainer
       config={{

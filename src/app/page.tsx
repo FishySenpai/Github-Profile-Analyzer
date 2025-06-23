@@ -81,6 +81,7 @@ export default function HomePage() {
                 }
               }
             }
+            totalCommitContributions
           }
         }
       }
@@ -92,8 +93,13 @@ export default function HomePage() {
         setError("User not found");
         setProfile(null);
       } else {
-        setProfile(data.user);
-        console.log("Profile data:", data.user);
+        const profileData = {
+          ...data.user,
+          totalCommits:
+            data.user.contributionsCollection.totalCommitContributions,
+        };
+        setProfile(profileData);
+        console.log("Profile data:", profileData);
         router.push(`/profile/${username}`);
       }
     } catch (error) {

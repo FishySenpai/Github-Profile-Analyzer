@@ -92,6 +92,7 @@ export default function ProfileAnalysisPage({
 }) {
   const { username } = React.use(params);
   const [profileData, setProfileData] = useState<any>(null);
+  const [commitData, setCommitData] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,51 +103,60 @@ export default function ProfileAnalysisPage({
       setError(null);
 
       const query = `
-        query($login: String!) {
-          user(login: $login) {
-            username: login
-            name
-            bio
-            avatarUrl
-            location
-            websiteUrl
-            createdAt
-            followers {
-              totalCount
-            }
-            following {
-              totalCount
-            }
-            repositories(first: 100, orderBy: {field: STARGAZERS, direction: DESC}) {
-              totalCount
-              nodes {
+      query($login: String!) {
+        user(login: $login) {
+          username: login
+          name
+          bio
+          avatarUrl
+          location
+          websiteUrl
+          createdAt
+          followers {
+            totalCount
+          }
+          following {
+            totalCount
+          }
+          repositories(first: 100, orderBy: {field: STARGAZERS, direction: DESC}) {
+            totalCount
+            nodes {
+              name
+              description
+              url
+              stargazerCount
+              forkCount
+              isPrivate
+              updatedAt
+              createdAt
+              primaryLanguage {
                 name
-                description
-                url
-                stargazerCount
-                forkCount
-                isPrivate
-                updatedAt
-                createdAt
-                primaryLanguage {
-                  name
-                  color
-                }
-              }
-            }
-            contributionsCollection {
-              contributionCalendar {
-                totalContributions
-                weeks {
-                  contributionDays {
-                    contributionCount
-                  }
-                }
+                color
               }
             }
           }
+          contributionsCollection {
+            contributionCalendar {
+              totalContributions
+              weeks {
+                contributionDays {
+                  contributionCount
+                }
+              }
+            }
+            totalCommitContributions
+              commitContributionsByRepository {
+    repository {
+      name
+    }
+    contributions {
+      totalCount
+    }
+  }
+          }
         }
-      `;
+      }
+    `;
 
       try {
         const data = await fetchGitHubGraphQL(query, { login: username });
@@ -160,7 +170,9 @@ export default function ProfileAnalysisPage({
 
           // Generate chartData
           const chartData = generateChartData(contributionCalendar);
-
+          const commitData = generateCommitData(user.contributionsCollection);
+          setCommitData(commitData);
+          console.log("Commit Data:", commitData);
           // Pass chartData to ContributionChart
           setChartData(chartData);
           // Map the fetched data to the structure of `profileData`
@@ -230,45 +242,107 @@ export default function ProfileAnalysisPage({
 
     fetchProfile();
   }, [username]);
+  function generateMonthLabels(includePreviousMonth = true) {
+    const months = [];
+
+    // Get current date
+    const currentDate = new Date();
+    // If includePreviousMonth is true, we start from the previous month
+    // If false, we start from the current month
+    const currentMonth = includePreviousMonth
+      ? currentDate.getMonth() - 1
+      : currentDate.getMonth();
+
+    // Generate month labels for the last 12 months
+    for (let i = 0; i < 12; i++) {
+      // Calculate month index (going backward 11 months or 12 months from current/previous month)
+      const monthIndex = (currentMonth - 11 + i + 12) % 12;
+
+      // Get month abbreviation
+      const monthAbbr = new Date(0, monthIndex).toLocaleString("default", {
+        month: "short",
+      });
+
+      months.push(monthAbbr);
+    }
+
+    return months;
+  }
+
+  function generateCommitData(contributionsCollection) {
+    // Get month labels
+    const months = generateMonthLabels();
+    const monthlyCommits = Array(12).fill(0);
+
+    // Rest of your code remains the same
+    const totalCommits = contributionsCollection.totalCommitContributions;
+    const totalContributions =
+      contributionsCollection.contributionCalendar.totalContributions;
+
+    // Get contribution counts by month
+    const monthlyContributions = Array(12).fill(0);
+
+    let weekIndex = 0;
+    contributionsCollection.contributionCalendar.weeks.forEach((week) => {
+      const monthOffset = Math.floor(weekIndex / 4.33);
+      const monthArrayIndex = Math.min(11, monthOffset);
+
+      week.contributionDays.forEach((day) => {
+        monthlyContributions[monthArrayIndex] += day.contributionCount;
+      });
+
+      weekIndex++;
+    });
+
+    // Calculate distribution as before
+    const totalContributionSum = monthlyContributions.reduce(
+      (sum, count) => sum + count,
+      0
+    );
+
+    if (totalContributionSum > 0) {
+      monthlyContributions.forEach((contributions, index) => {
+        const percentage = contributions / totalContributionSum;
+        monthlyCommits[index] = Math.round(totalCommits * percentage);
+      });
+    }
+
+    // Generate commitData from monthlyCommits
+    return months.map((month, index) => ({
+      month,
+      commits: monthlyCommits[index],
+    }));
+  }
 
   function generateChartData(contributionCalendar) {
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
+    // Use the same month generation function for consistency
+    const months = generateMonthLabels();
 
     // Initialize an object to store contributions by month
     const monthlyContributions = Array(12).fill(0);
 
-    // Loop through weeks and aggregate contributions by month
-    contributionCalendar.weeks.forEach((week, weekIndex) => {
-      week.contributionDays.forEach((day, dayIndex) => {
-        const approximateDate = new Date();
-        approximateDate.setDate(1); // Start at the first day of the month
-        approximateDate.setMonth(weekIndex); // Use the week index to approximate the month
-        const month = approximateDate.getMonth(); // Get the month (0-11)
-        monthlyContributions[month] += day.contributionCount; // Add contributions to the corresponding month
+    // Process weeks with the same approach as in generateCommitData
+    let weekIndex = 0;
+    contributionCalendar.weeks.forEach((week) => {
+      const monthOffset = Math.floor(weekIndex / 4.33);
+      const monthArrayIndex = Math.min(11, monthOffset);
+
+      week.contributionDays.forEach((day) => {
+        monthlyContributions[monthArrayIndex] += day.contributionCount;
       });
+
+      weekIndex++;
     });
-console.log("Monthly Contributions:", monthlyContributions);
+
+    console.log("Monthly Contributions:", monthlyContributions);
+
     // Generate chartData from monthlyContributions
-    const chartData = months.map((month, index) => ({
+    return months.map((month, index) => ({
       date: month,
       contributions: monthlyContributions[index],
     }));
-
-    return chartData;
   }
+
   const calculateContributionStreak = (weeks: any[]) => {
     let streak = 0;
     let maxStreak = 0;
@@ -501,7 +575,7 @@ console.log("Monthly Contributions:", monthlyContributions);
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ContributionChart  chartData={chartData}/>
+                    <ContributionChart chartData={chartData} />
                   </CardContent>
                 </Card>
 
@@ -527,7 +601,7 @@ console.log("Monthly Contributions:", monthlyContributions);
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="h-[300px] w-[700px]">
-                    <CommitChart />
+                    <CommitChart commitData={commitData} />
                   </CardContent>
                 </Card>
               </div>

@@ -39,15 +39,15 @@ const chartConfig = {
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
-export function ContributionChart(chartData) {
+export function ContributionChart({chartData}) {
   console.log("ContributionChart", chartData);
   return (
     <Card>
-      <CardContent className="flex h-[300px] items-center justify-center">
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
+      <CardContent className="flex max-h-[300px] items-center justify-center">
+        <ChartContainer config={chartConfig} className="max-h-[300px] w-full">
           <LineChart
             accessibilityLayer
-            data={chartData.chartData}
+            data={chartData}
             margin={{
               left: 12,
               right: 12,
@@ -76,7 +76,7 @@ export function ContributionChart(chartData) {
               axisLine={false}
               tickMargin={8}
               domain={[0, 100]} // Set the range of the y-axis
-              ticks={[0, 25, 50, 75, 100]} // Custom tick values
+              tickCount={6}
             />
 
             {/* Tooltip */}

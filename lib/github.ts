@@ -9,7 +9,6 @@ export async function fetchGitHubGraphQL(query: string, variables = {}) {
     },
     body: JSON.stringify({ query, variables }),
   });
-
   const json = await res.json();
   if (json.errors) {
     throw new Error(JSON.stringify(json.errors));
