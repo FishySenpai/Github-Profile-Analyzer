@@ -90,96 +90,99 @@ export default function ProfileAnalysisPage({
 }: {
   params: { username: string };
 }) {
-  const { username } = React.use(params);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [commitData, setCommitData] = useState<any[]>([]);
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+   const router = useRouter();
 
+   const [profileData, setProfileData] = useState<any>(null);
+   const [commitData, setCommitData] = useState<any[]>([]);
+   const [chartData, setChartData] = useState<any[]>([]);
+   const [loading, setLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+const username = params?.username;
   useEffect(() => {
     const fetchProfile = async () => {
+      if (!username) return;
       setLoading(true);
-      setError(null);
 
-      const query = `
-      query($login: String!) {
-        user(login: $login) {
-          username: login
-          name
-          bio
-          avatarUrl
-          location
-          websiteUrl
-          createdAt
-          followers {
-            totalCount
-          }
-          following {
-            totalCount
-          }
-          repositories(first: 100, orderBy: {field: STARGAZERS, direction: DESC}) {
-            totalCount
-            nodes {
+      try {
+        const query = `
+          query($login: String!) {
+            user(login: $login) {
+              username: login
               name
-              description
-              url
-              stargazerCount
-              forkCount
-              isPrivate
-              updatedAt
+              bio
+              avatarUrl
+              location
+              websiteUrl
               createdAt
-              primaryLanguage {
-                name
-                color
+              followers {
+                totalCount
               }
-            }
-          }
-          contributionsCollection {
-            contributionCalendar {
-              totalContributions
-              weeks {
-                contributionDays {
-                  contributionCount
+              following {
+                totalCount
+              }
+              repositories(first: 100, orderBy: {field: STARGAZERS, direction: DESC}) {
+                totalCount
+                nodes {
+                  name
+                  description
+                  url
+                  stargazerCount
+                  forkCount
+                  isPrivate
+                  updatedAt
+                  createdAt
+                  primaryLanguage {
+                    name
+                    color
+                  }
+                }
+              }
+              contributionsCollection {
+                contributionCalendar {
+                  totalContributions
+                  weeks {
+                    contributionDays {
+                      contributionCount
+                    }
+                  }
+                }
+                totalCommitContributions
+                commitContributionsByRepository {
+                  repository {
+                    name
+                  }
+                  contributions {
+                    totalCount
+                  }
                 }
               }
             }
-            totalCommitContributions
-              commitContributionsByRepository {
-    repository {
-      name
-    }
-    contributions {
-      totalCount
-    }
-  }
           }
-        }
-      }
-    `;
+        `;
 
-      try {
-        const data = await fetchGitHubGraphQL(query, { login: username });
+        const data = await fetchGitHubGraphQL(query, {
+          login: params.username,
+        });
+
         if (!data.user) {
           setError("User not found");
           setProfileData(null);
         } else {
           const user = data.user;
           const contributionCalendar =
-            data.user.contributionsCollection.contributionCalendar;
+            user.contributionsCollection.contributionCalendar;
 
-          // Generate chartData
+          // Generate chart data
           const chartData = generateChartData(contributionCalendar);
           const commitData = generateCommitData(user.contributionsCollection);
           setCommitData(commitData);
-          console.log("Commit Data:", commitData);
-          // Pass chartData to ContributionChart
           setChartData(chartData);
-          // Map the fetched data to the structure of `profileData`
+
+          // Map profile data
           const mappedProfileData = {
             username: user.username,
-            name: user.name,
-            bio: user.bio,
+            name: user.name || user.username,
+            bio: user.bio || "",
             avatar: user.avatarUrl,
             location: user.location,
             website: user.websiteUrl,
@@ -195,32 +198,16 @@ export default function ProfileAnalysisPage({
               (acc, repo) => acc + repo.forkCount,
               0
             ),
-            totalCommits:
-              user.contributionsCollection.contributionCalendar
-                .totalContributions,
+            totalCommits: user.contributionsCollection.totalCommitContributions,
             contributionStreak: calculateContributionStreak(
               user.contributionsCollection.contributionCalendar.weeks
             ),
-            languages: user.repositories.nodes.reduce((acc, repo) => {
-              const lang = repo.primaryLanguage;
-              if (lang) {
-                const existingLang = acc.find((l) => l.name === lang.name);
-                if (existingLang) {
-                  existingLang.percentage += 1;
-                } else {
-                  acc.push({
-                    name: lang.name,
-                    percentage: 1,
-                    color: lang.color,
-                  });
-                }
-              }
-              return acc;
-            }, []),
+            languages: calculateLanguageDistribution(user.repositories.nodes),
             topRepos: user.repositories.nodes.slice(0, 3).map((repo) => ({
               name: repo.name,
-              description: repo.description,
+              description: repo.description || "",
               language: repo.primaryLanguage?.name || "Unknown",
+              languageColor: repo.primaryLanguage?.color || "#888",
               stars: repo.stargazerCount,
               forks: repo.forkCount,
               isPrivate: repo.isPrivate,
@@ -229,12 +216,10 @@ export default function ProfileAnalysisPage({
           };
 
           setProfileData(mappedProfileData);
-          console.log("Profile Data:", data);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching profile data:", error);
         setError("Failed to fetch profile data");
-        setProfileData(null);
       } finally {
         setLoading(false);
       }
@@ -242,127 +227,158 @@ export default function ProfileAnalysisPage({
 
     fetchProfile();
   }, [username]);
-  function generateMonthLabels(includePreviousMonth = true) {
-    const months = [];
 
-    // Get current date
-    const currentDate = new Date();
-    // If includePreviousMonth is true, we start from the previous month
-    // If false, we start from the current month
-    const currentMonth = includePreviousMonth
-      ? currentDate.getMonth() - 1
-      : currentDate.getMonth();
+   function generateMonthLabels(includePreviousMonth = true) {
+     const months = [];
 
-    // Generate month labels for the last 12 months
-    for (let i = 0; i < 12; i++) {
-      // Calculate month index (going backward 11 months or 12 months from current/previous month)
-      const monthIndex = (currentMonth - 11 + i + 12) % 12;
+     // Get current date
+     const currentDate = new Date();
+     // If includePreviousMonth is true, we start from the previous month
+     // If false, we start from the current month
+     const currentMonth = includePreviousMonth
+       ? currentDate.getMonth() - 1
+       : currentDate.getMonth();
 
-      // Get month abbreviation
-      const monthAbbr = new Date(0, monthIndex).toLocaleString("default", {
-        month: "short",
-      });
+     // Generate month labels for the last 12 months
+     for (let i = 0; i < 12; i++) {
+       // Calculate month index (going backward 11 months or 12 months from current/previous month)
+       const monthIndex = (currentMonth - 11 + i + 12) % 12;
 
-      months.push(monthAbbr);
+       // Get month abbreviation
+       const monthAbbr = new Date(0, monthIndex).toLocaleString("default", {
+         month: "short",
+       });
+
+       months.push(monthAbbr);
+     }
+
+     return months;
+   }
+
+   function generateCommitData(contributionsCollection) {
+     // Get month labels
+     const months = generateMonthLabels();
+     const monthlyCommits = Array(12).fill(0);
+
+     // Rest of your code remains the same
+     const totalCommits = contributionsCollection.totalCommitContributions;
+     const totalContributions =
+       contributionsCollection.contributionCalendar.totalContributions;
+
+     // Get contribution counts by month
+     const monthlyContributions = Array(12).fill(0);
+
+     let weekIndex = 0;
+     contributionsCollection.contributionCalendar.weeks.forEach((week) => {
+       const monthOffset = Math.floor(weekIndex / 4.33);
+       const monthArrayIndex = Math.min(11, monthOffset);
+
+       week.contributionDays.forEach((day) => {
+         monthlyContributions[monthArrayIndex] += day.contributionCount;
+       });
+
+       weekIndex++;
+     });
+
+     // Calculate distribution as before
+     const totalContributionSum = monthlyContributions.reduce(
+       (sum, count) => sum + count,
+       0
+     );
+
+     if (totalContributionSum > 0) {
+       monthlyContributions.forEach((contributions, index) => {
+         const percentage = contributions / totalContributionSum;
+         monthlyCommits[index] = Math.round(totalCommits * percentage);
+       });
+     }
+
+     // Generate commitData from monthlyCommits
+     return months.map((month, index) => ({
+       month,
+       commits: monthlyCommits[index],
+     }));
+   }
+
+   function generateChartData(contributionCalendar) {
+     // Use the same month generation function for consistency
+     const months = generateMonthLabels();
+
+     // Initialize an object to store contributions by month
+     const monthlyContributions = Array(12).fill(0);
+
+     // Process weeks with the same approach as in generateCommitData
+     let weekIndex = 0;
+     contributionCalendar.weeks.forEach((week) => {
+       const monthOffset = Math.floor(weekIndex / 4.33);
+       const monthArrayIndex = Math.min(11, monthOffset);
+
+       week.contributionDays.forEach((day) => {
+         monthlyContributions[monthArrayIndex] += day.contributionCount;
+       });
+
+       weekIndex++;
+     });
+
+     console.log("Monthly Contributions:", monthlyContributions);
+
+     // Generate chartData from monthlyContributions
+     return months.map((month, index) => ({
+       date: month,
+       contributions: monthlyContributions[index],
+     }));
+   }
+
+   const calculateContributionStreak = (weeks: any[]) => {
+     let streak = 0;
+     let maxStreak = 0;
+
+     weeks.forEach((week) => {
+       week.contributionDays.forEach((day) => {
+         if (day.contributionCount > 0) {
+           streak++;
+           maxStreak = Math.max(maxStreak, streak);
+         } else {
+           streak = 0;
+         }
+       });
+     });
+
+     return maxStreak;
+   };
+function calculateLanguageDistribution(repos) {
+  // Create a map of languages and their frequency
+  const languageMap = {};
+
+  // Count repositories by primary language
+  repos.forEach((repo) => {
+    if (repo.primaryLanguage) {
+      const lang = repo.primaryLanguage.name;
+      languageMap[lang] = (languageMap[lang] || 0) + 1;
     }
+  });
 
-    return months;
-  }
+  // Calculate total repos with language data
+  const totalRepos = Object.values(languageMap).reduce(
+    (sum, count) => Number(sum) + Number(count),
+    0
+  );
 
-  function generateCommitData(contributionsCollection) {
-    // Get month labels
-    const months = generateMonthLabels();
-    const monthlyCommits = Array(12).fill(0);
-
-    // Rest of your code remains the same
-    const totalCommits = contributionsCollection.totalCommitContributions;
-    const totalContributions =
-      contributionsCollection.contributionCalendar.totalContributions;
-
-    // Get contribution counts by month
-    const monthlyContributions = Array(12).fill(0);
-
-    let weekIndex = 0;
-    contributionsCollection.contributionCalendar.weeks.forEach((week) => {
-      const monthOffset = Math.floor(weekIndex / 4.33);
-      const monthArrayIndex = Math.min(11, monthOffset);
-
-      week.contributionDays.forEach((day) => {
-        monthlyContributions[monthArrayIndex] += day.contributionCount;
-      });
-
-      weekIndex++;
-    });
-
-    // Calculate distribution as before
-    const totalContributionSum = monthlyContributions.reduce(
-      (sum, count) => sum + count,
-      0
-    );
-
-    if (totalContributionSum > 0) {
-      monthlyContributions.forEach((contributions, index) => {
-        const percentage = contributions / totalContributionSum;
-        monthlyCommits[index] = Math.round(totalCommits * percentage);
-      });
-    }
-
-    // Generate commitData from monthlyCommits
-    return months.map((month, index) => ({
-      month,
-      commits: monthlyCommits[index],
-    }));
-  }
-
-  function generateChartData(contributionCalendar) {
-    // Use the same month generation function for consistency
-    const months = generateMonthLabels();
-
-    // Initialize an object to store contributions by month
-    const monthlyContributions = Array(12).fill(0);
-
-    // Process weeks with the same approach as in generateCommitData
-    let weekIndex = 0;
-    contributionCalendar.weeks.forEach((week) => {
-      const monthOffset = Math.floor(weekIndex / 4.33);
-      const monthArrayIndex = Math.min(11, monthOffset);
-
-      week.contributionDays.forEach((day) => {
-        monthlyContributions[monthArrayIndex] += day.contributionCount;
-      });
-
-      weekIndex++;
-    });
-
-    console.log("Monthly Contributions:", monthlyContributions);
-
-    // Generate chartData from monthlyContributions
-    return months.map((month, index) => ({
-      date: month,
-      contributions: monthlyContributions[index],
-    }));
-  }
-
-  const calculateContributionStreak = (weeks: any[]) => {
-    let streak = 0;
-    let maxStreak = 0;
-
-    weeks.forEach((week) => {
-      week.contributionDays.forEach((day) => {
-        if (day.contributionCount > 0) {
-          streak++;
-          maxStreak = Math.max(maxStreak, streak);
-        } else {
-          streak = 0;
-        }
-      });
-    });
-
-    return maxStreak;
-  };
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>{error}</p>;
+  // Convert to array with percentage and color info
+  return Object.entries(languageMap)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percentage: Math.round((Number(count) / totalRepos) * 100),
+      color:
+        repos.find((r) => r.primaryLanguage?.name === name)?.primaryLanguage
+          ?.color || "#888",
+    }))
+    .sort((a, b) => b.percentage - a.percentage)
+    .slice(0, 5); // Return top 5 languages
+}
+   if (loading) return <p>Loading...</p>;
+   if (error) return <p>{error}</p>;
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {/* Header */}

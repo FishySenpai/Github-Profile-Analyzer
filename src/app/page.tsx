@@ -1,5 +1,5 @@
-'use client';
-import React, { useState } from "react";
+"use client";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { fetchGitHubGraphQL } from "../../lib/github";
 import { Button } from "@/components/ui/button";
@@ -24,92 +24,31 @@ import {
 } from "lucide-react";
 
 export default function HomePage() {
-  const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
+    const [username, setUsername] = useState<string>("");
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
 
-  const fetchProfile = async () => {
-    if (!username.trim()) {
-      setError("Please enter a GitHub username");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const query = `
-      query($login: String!) {
-        user(login: $login) {
-          username: login
-          name
-          bio
-          avatarUrl
-          location
-          websiteUrl
-          createdAt
-          followers {
-            totalCount
-          }
-          following {
-            totalCount
-          }
-          repositories(first: 100, orderBy: {field: STARGAZERS, direction: DESC}) {
-            totalCount
-            nodes {
-              name
-              description
-              url
-              stargazerCount
-              forkCount
-              isPrivate
-              updatedAt
-              createdAt
-              primaryLanguage {
-                name
-                color
-              }
-            }
-          }
-          contributionsCollection {
-            contributionCalendar {
-              totalContributions
-              weeks {
-                contributionDays {
-                  contributionCount
-                }
-              }
-            }
-            totalCommitContributions
-          }
-        }
+    // Add the fetchProfile function
+    const fetchProfile = async () => {
+      if (!username || username.trim() === "") {
+        setError("Please enter a GitHub username");
+        return;
       }
-    `;
 
-    try {
-      const data = await fetchGitHubGraphQL(query, { login: username });
-      if (!data.user) {
-        setError("User not found");
-        setProfile(null);
-      } else {
-        const profileData = {
-          ...data.user,
-          totalCommits:
-            data.user.contributionsCollection.totalCommitContributions,
-        };
-        setProfile(profileData);
-        console.log("Profile data:", profileData);
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Navigate to the profile page with the username
         router.push(`/profile/${username}`);
+      } catch (error) {
+        console.error("Error:", error);
+        setError("An error occurred");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setError("Failed to fetch profile data");
-      setProfile(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
