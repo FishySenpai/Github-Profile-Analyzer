@@ -1,19 +1,39 @@
-"use client"
+"use client";
 
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 
-const activityData = [
-  { day: "Mon", commits: 12, prs: 3, issues: 1 },
-  { day: "Tue", commits: 8, prs: 2, issues: 2 },
-  { day: "Wed", commits: 15, prs: 4, issues: 0 },
-  { day: "Thu", commits: 10, prs: 1, issues: 3 },
-  { day: "Fri", commits: 18, prs: 5, issues: 1 },
-  { day: "Sat", commits: 5, prs: 1, issues: 0 },
-  { day: "Sun", commits: 3, prs: 0, issues: 1 },
-]
+// Fallback data using months instead of days
+const fallbackData = [
+  { month: "Jan", commits: 0, prs: 0, issues: 0 },
+  { month: "Feb", commits: 0, prs: 0, issues: 0 },
+  { month: "Mar", commits: 0, prs: 0, issues: 0 },
+  { month: "Apr", commits: 0, prs: 0, issues: 0 },
+  { month: "May", commits: 0, prs: 0, issues: 0 },
+  { month: "Jun", commits: 0, prs: 0, issues: 0 },
+  { month: "Jul", commits: 0, prs: 0, issues: 0 },
+  { month: "Aug", commits: 0, prs: 0, issues: 0 },
+  { month: "Sep", commits: 0, prs: 0, issues: 0 },
+  { month: "Oct", commits: 0, prs: 0, issues: 0 },
+  { month: "Nov", commits: 0, prs: 0, issues: 0 },
+  { month: "Dec", commits: 0, prs: 0, issues: 0 },
+];
 
-export function ActivityChart() {
+export function ActivityChart({ data = fallbackData }) {
+  // Use provided data or fallback to default
+  const chartData = data || fallbackData;
+
   return (
     <ChartContainer
       config={{
@@ -33,9 +53,9 @@ export function ActivityChart() {
       className="h-[300px] w-full"
     >
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={activityData}>
+        <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="day" />
+          <XAxis dataKey="month" />
           <YAxis />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="commits" fill="var(--color-commits)" />

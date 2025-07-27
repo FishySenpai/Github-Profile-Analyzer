@@ -90,14 +90,14 @@ export default function ProfileAnalysisPage({
 }: {
   params: { username: string };
 }) {
-   const router = useRouter();
+  const router = useRouter();
 
-   const [profileData, setProfileData] = useState<any>(null);
-   const [commitData, setCommitData] = useState<any[]>([]);
-   const [chartData, setChartData] = useState<any[]>([]);
-   const [loading, setLoading] = useState(false);
-   const [error, setError] = useState<string | null>(null);
-const username = params?.username;
+  const [profileData, setProfileData] = useState<any>(null);
+  const [commitData, setCommitData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const username = params?.username;
   useEffect(() => {
     const fetchProfile = async () => {
       if (!username) return;
@@ -143,22 +143,48 @@ const username = params?.username;
                   weeks {
                     contributionDays {
                       contributionCount
+                      date
                     }
                   }
                 }
-                totalCommitContributions
-                commitContributionsByRepository {
-                  repository {
-                    name
-                  }
-                  contributions {
-                    totalCount
-                  }
-                }
-              }
-            }
+totalCommitContributions
+        totalIssueContributions
+        totalPullRequestContributions
+        totalPullRequestReviewContributions
+        totalRepositoriesWithContributedCommits
+        totalRepositoriesWithContributedIssues
+        totalRepositoriesWithContributedPullRequests
+        totalRepositoriesWithContributedPullRequestReviews
+        commitContributionsByRepository {
+          repository {
+            name
           }
-        `;
+          contributions {
+            totalCount
+          }
+        }
+      }
+      pullRequests(first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
+        totalCount
+        nodes {
+          title
+          createdAt
+          merged
+          closed
+        }
+      }
+      issues(first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
+        totalCount
+        nodes {
+          title
+          createdAt
+          closed
+          closedAt
+        }
+      }
+    }
+  }
+`;
 
         const data = await fetchGitHubGraphQL(query, {
           login: params.username,
@@ -169,6 +195,7 @@ const username = params?.username;
           setProfileData(null);
         } else {
           const user = data.user;
+          console.log("User Data:", user);
           const contributionCalendar =
             user.contributionsCollection.contributionCalendar;
 
@@ -177,7 +204,7 @@ const username = params?.username;
           const commitData = generateCommitData(user.contributionsCollection);
           setCommitData(commitData);
           setChartData(chartData);
-
+          const monthlyActivityData = calculateMonthlyActivity(user);
           // Map profile data
           const mappedProfileData = {
             username: user.username,
@@ -213,9 +240,11 @@ const username = params?.username;
               isPrivate: repo.isPrivate,
               updatedAt: repo.updatedAt,
             })),
+            monthlyActivityData,
           };
 
           setProfileData(mappedProfileData);
+          console.log("Profile Data:", mappedProfileData);
         }
       } catch (error) {
         console.error("Error fetching profile data:", error);
@@ -228,157 +257,231 @@ const username = params?.username;
     fetchProfile();
   }, [username]);
 
-   function generateMonthLabels(includePreviousMonth = true) {
-     const months = [];
+function calculateMonthlyActivity(user) {
+  const { contributionsCollection, pullRequests, issues } = user;
+  const calendar = contributionsCollection.contributionCalendar;
 
-     // Get current date
-     const currentDate = new Date();
-     // If includePreviousMonth is true, we start from the previous month
-     // If false, we start from the current month
-     const currentMonth = includePreviousMonth
-       ? currentDate.getMonth() - 1
-       : currentDate.getMonth();
+  // Initialize monthly data
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const monthlyActivity = monthNames.map((month) => ({
+    month,
+    commits: 0,
+    prs: 0,
+    issues: 0,
+  }));
 
-     // Generate month labels for the last 12 months
-     for (let i = 0; i < 12; i++) {
-       // Calculate month index (going backward 11 months or 12 months from current/previous month)
-       const monthIndex = (currentMonth - 11 + i + 12) % 12;
+  // Process contribution days for commits
+  calendar.weeks.forEach((week) => {
+    week.contributionDays.forEach((day) => {
+      if (day.contributionCount > 0) {
+        const date = new Date(day.date);
+        const month = date.getMonth(); // 0-11
+        monthlyActivity[month].commits += day.contributionCount;
+      }
+    });
+  });
 
-       // Get month abbreviation
-       const monthAbbr = new Date(0, monthIndex).toLocaleString("default", {
-         month: "short",
-       });
+  // Process pull requests
+  pullRequests.nodes.forEach((pr) => {
+    const date = new Date(pr.createdAt);
+    // Only count PRs from the last year
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-       months.push(monthAbbr);
-     }
-
-     return months;
-   }
-
-   function generateCommitData(contributionsCollection) {
-     // Get month labels
-     const months = generateMonthLabels();
-     const monthlyCommits = Array(12).fill(0);
-
-     // Rest of your code remains the same
-     const totalCommits = contributionsCollection.totalCommitContributions;
-     const totalContributions =
-       contributionsCollection.contributionCalendar.totalContributions;
-
-     // Get contribution counts by month
-     const monthlyContributions = Array(12).fill(0);
-
-     let weekIndex = 0;
-     contributionsCollection.contributionCalendar.weeks.forEach((week) => {
-       const monthOffset = Math.floor(weekIndex / 4.33);
-       const monthArrayIndex = Math.min(11, monthOffset);
-
-       week.contributionDays.forEach((day) => {
-         monthlyContributions[monthArrayIndex] += day.contributionCount;
-       });
-
-       weekIndex++;
-     });
-
-     // Calculate distribution as before
-     const totalContributionSum = monthlyContributions.reduce(
-       (sum, count) => sum + count,
-       0
-     );
-
-     if (totalContributionSum > 0) {
-       monthlyContributions.forEach((contributions, index) => {
-         const percentage = contributions / totalContributionSum;
-         monthlyCommits[index] = Math.round(totalCommits * percentage);
-       });
-     }
-
-     // Generate commitData from monthlyCommits
-     return months.map((month, index) => ({
-       month,
-       commits: monthlyCommits[index],
-     }));
-   }
-
-   function generateChartData(contributionCalendar) {
-     // Use the same month generation function for consistency
-     const months = generateMonthLabels();
-
-     // Initialize an object to store contributions by month
-     const monthlyContributions = Array(12).fill(0);
-
-     // Process weeks with the same approach as in generateCommitData
-     let weekIndex = 0;
-     contributionCalendar.weeks.forEach((week) => {
-       const monthOffset = Math.floor(weekIndex / 4.33);
-       const monthArrayIndex = Math.min(11, monthOffset);
-
-       week.contributionDays.forEach((day) => {
-         monthlyContributions[monthArrayIndex] += day.contributionCount;
-       });
-
-       weekIndex++;
-     });
-
-     console.log("Monthly Contributions:", monthlyContributions);
-
-     // Generate chartData from monthlyContributions
-     return months.map((month, index) => ({
-       date: month,
-       contributions: monthlyContributions[index],
-     }));
-   }
-
-   const calculateContributionStreak = (weeks: any[]) => {
-     let streak = 0;
-     let maxStreak = 0;
-
-     weeks.forEach((week) => {
-       week.contributionDays.forEach((day) => {
-         if (day.contributionCount > 0) {
-           streak++;
-           maxStreak = Math.max(maxStreak, streak);
-         } else {
-           streak = 0;
-         }
-       });
-     });
-
-     return maxStreak;
-   };
-function calculateLanguageDistribution(repos) {
-  // Create a map of languages and their frequency
-  const languageMap = {};
-
-  // Count repositories by primary language
-  repos.forEach((repo) => {
-    if (repo.primaryLanguage) {
-      const lang = repo.primaryLanguage.name;
-      languageMap[lang] = (languageMap[lang] || 0) + 1;
+    if (date >= oneYearAgo) {
+      const month = date.getMonth();
+      monthlyActivity[month].prs += 1;
     }
   });
 
-  // Calculate total repos with language data
-  const totalRepos = Object.values(languageMap).reduce(
-    (sum, count) => Number(sum) + Number(count),
-    0
-  );
+  // Process issues
+  issues.nodes.forEach((issue) => {
+    const date = new Date(issue.createdAt);
+    // Only count issues from the last year
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-  // Convert to array with percentage and color info
-  return Object.entries(languageMap)
-    .map(([name, count]) => ({
-      name,
-      count,
-      percentage: Math.round((Number(count) / totalRepos) * 100),
-      color:
-        repos.find((r) => r.primaryLanguage?.name === name)?.primaryLanguage
-          ?.color || "#888",
-    }))
-    .sort((a, b) => b.percentage - a.percentage)
-    .slice(0, 5); // Return top 5 languages
+    if (date >= oneYearAgo) {
+      const month = date.getMonth();
+      monthlyActivity[month].issues += 1;
+    }
+  });
+
+  // Reorder months to start from current month and go back 1 year
+  const currentMonth = new Date().getMonth();
+  const orderedMonths = [];
+
+  for (let i = 0; i < 12; i++) {
+    const monthIndex = (currentMonth - i + 12) % 12; // Ensure it wraps around
+    orderedMonths.push(monthlyActivity[monthIndex]);
+  }
+
+  return orderedMonths.reverse(); // Reverse to show oldest to newest
 }
-   if (loading) return <p>Loading...</p>;
-   if (error) return <p>{error}</p>;
+  function generateMonthLabels(includePreviousMonth = true) {
+    const months = [];
+
+    // Get current date
+    const currentDate = new Date();
+    // If includePreviousMonth is true, we start from the previous month
+    // If false, we start from the current month
+    const currentMonth = includePreviousMonth
+      ? currentDate.getMonth() - 1
+      : currentDate.getMonth();
+
+    // Generate month labels for the last 12 months
+    for (let i = 0; i < 12; i++) {
+      // Calculate month index (going backward 11 months or 12 months from current/previous month)
+      const monthIndex = (currentMonth - 11 + i + 12) % 12;
+
+      // Get month abbreviation
+      const monthAbbr = new Date(0, monthIndex).toLocaleString("default", {
+        month: "short",
+      });
+
+      months.push(monthAbbr);
+    }
+
+    return months;
+  }
+
+  function generateCommitData(contributionsCollection) {
+    // Get month labels
+    const months = generateMonthLabels();
+    const monthlyCommits = Array(12).fill(0);
+
+    // Rest of your code remains the same
+    const totalCommits = contributionsCollection.totalCommitContributions;
+    const totalContributions =
+      contributionsCollection.contributionCalendar.totalContributions;
+
+    // Get contribution counts by month
+    const monthlyContributions = Array(12).fill(0);
+
+    let weekIndex = 0;
+    contributionsCollection.contributionCalendar.weeks.forEach((week) => {
+      const monthOffset = Math.floor(weekIndex / 4.33);
+      const monthArrayIndex = Math.min(11, monthOffset);
+
+      week.contributionDays.forEach((day) => {
+        monthlyContributions[monthArrayIndex] += day.contributionCount;
+      });
+
+      weekIndex++;
+    });
+
+    // Calculate distribution as before
+    const totalContributionSum = monthlyContributions.reduce(
+      (sum, count) => sum + count,
+      0
+    );
+
+    if (totalContributionSum > 0) {
+      monthlyContributions.forEach((contributions, index) => {
+        const percentage = contributions / totalContributionSum;
+        monthlyCommits[index] = Math.round(totalCommits * percentage);
+      });
+    }
+
+    // Generate commitData from monthlyCommits
+    return months.map((month, index) => ({
+      month,
+      commits: monthlyCommits[index],
+    }));
+  }
+
+  function generateChartData(contributionCalendar) {
+    // Use the same month generation function for consistency
+    const months = generateMonthLabels();
+
+    // Initialize an object to store contributions by month
+    const monthlyContributions = Array(12).fill(0);
+
+    // Process weeks with the same approach as in generateCommitData
+    let weekIndex = 0;
+    contributionCalendar.weeks.forEach((week) => {
+      const monthOffset = Math.floor(weekIndex / 4.33);
+      const monthArrayIndex = Math.min(11, monthOffset);
+
+      week.contributionDays.forEach((day) => {
+        monthlyContributions[monthArrayIndex] += day.contributionCount;
+      });
+
+      weekIndex++;
+    });
+
+    console.log("Monthly Contributions:", monthlyContributions);
+
+    // Generate chartData from monthlyContributions
+    return months.map((month, index) => ({
+      date: month,
+      contributions: monthlyContributions[index],
+    }));
+  }
+
+  const calculateContributionStreak = (weeks: any[]) => {
+    let streak = 0;
+    let maxStreak = 0;
+
+    weeks.forEach((week) => {
+      week.contributionDays.forEach((day) => {
+        if (day.contributionCount > 0) {
+          streak++;
+          maxStreak = Math.max(maxStreak, streak);
+        } else {
+          streak = 0;
+        }
+      });
+    });
+
+    return maxStreak;
+  };
+  function calculateLanguageDistribution(repos) {
+    // Create a map of languages and their frequency
+    const languageMap = {};
+
+    // Count repositories by primary language
+    repos.forEach((repo) => {
+      if (repo.primaryLanguage) {
+        const lang = repo.primaryLanguage.name;
+        languageMap[lang] = (languageMap[lang] || 0) + 1;
+      }
+    });
+
+    // Calculate total repos with language data
+    const totalRepos = Object.values(languageMap).reduce(
+      (sum, count) => Number(sum) + Number(count),
+      0
+    );
+
+    // Convert to array with percentage and color info
+    return Object.entries(languageMap)
+      .map(([name, count]) => ({
+        name,
+        count,
+        percentage: Math.round((Number(count) / totalRepos) * 100),
+        color:
+          repos.find((r) => r.primaryLanguage?.name === name)?.primaryLanguage
+            ?.color || "#888",
+      }))
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 5); // Return top 5 languages
+  }
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>{error}</p>;
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {/* Header */}
@@ -633,7 +736,7 @@ function calculateLanguageDistribution(repos) {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="w-full">
-                    <ActivityChart />
+                    <ActivityChart data={profileData.monthlyActivityData} />
                   </CardContent>
                 </Card>
 
