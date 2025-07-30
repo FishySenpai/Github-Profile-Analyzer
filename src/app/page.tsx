@@ -116,6 +116,11 @@ export default function HomePage() {
               <Button
                 size="lg"
                 className="h-12 px-6"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    fetchProfile();
+                  }
+                }}
                 onClick={fetchProfile}
                 disabled={loading}
               >

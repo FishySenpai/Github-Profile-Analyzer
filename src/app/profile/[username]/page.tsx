@@ -205,6 +205,7 @@ totalCommitContributions
           setCommitData(commitData);
           setChartData(chartData);
           const monthlyActivityData = calculateMonthlyActivity(user);
+          const activityStats = calculateActivityStats(user);
           // Map profile data
           const mappedProfileData = {
             username: user.username,
@@ -241,6 +242,7 @@ totalCommitContributions
               updatedAt: repo.updatedAt,
             })),
             monthlyActivityData,
+            activityStats,
           };
 
           setProfileData(mappedProfileData);
@@ -257,80 +259,159 @@ totalCommitContributions
     fetchProfile();
   }, [username]);
 
-function calculateMonthlyActivity(user) {
-  const { contributionsCollection, pullRequests, issues } = user;
-  const calendar = contributionsCollection.contributionCalendar;
+  function calculateMonthlyActivity(user) {
+    const { contributionsCollection, pullRequests, issues } = user;
+    const calendar = contributionsCollection.contributionCalendar;
 
-  // Initialize monthly data
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const monthlyActivity = monthNames.map((month) => ({
-    month,
-    commits: 0,
-    prs: 0,
-    issues: 0,
-  }));
+    // Initialize monthly data
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const monthlyActivity = monthNames.map((month) => ({
+      month,
+      commits: 0,
+      prs: 0,
+      issues: 0,
+    }));
 
-  // Process contribution days for commits
-  calendar.weeks.forEach((week) => {
-    week.contributionDays.forEach((day) => {
-      if (day.contributionCount > 0) {
-        const date = new Date(day.date);
-        const month = date.getMonth(); // 0-11
-        monthlyActivity[month].commits += day.contributionCount;
+    // Process contribution days for commits
+    calendar.weeks.forEach((week) => {
+      week.contributionDays.forEach((day) => {
+        if (day.contributionCount > 0) {
+          const date = new Date(day.date);
+          const month = date.getMonth(); // 0-11
+          monthlyActivity[month].commits += day.contributionCount;
+        }
+      });
+    });
+
+    // Process pull requests
+    pullRequests.nodes.forEach((pr) => {
+      const date = new Date(pr.createdAt);
+      // Only count PRs from the last year
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+      if (date >= oneYearAgo) {
+        const month = date.getMonth();
+        monthlyActivity[month].prs += 1;
       }
     });
-  });
 
-  // Process pull requests
-  pullRequests.nodes.forEach((pr) => {
-    const date = new Date(pr.createdAt);
-    // Only count PRs from the last year
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    // Process issues
+    issues.nodes.forEach((issue) => {
+      const date = new Date(issue.createdAt);
+      // Only count issues from the last year
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    if (date >= oneYearAgo) {
-      const month = date.getMonth();
-      monthlyActivity[month].prs += 1;
+      if (date >= oneYearAgo) {
+        const month = date.getMonth();
+        monthlyActivity[month].issues += 1;
+      }
+    });
+
+    // Reorder months to start from current month and go back 1 year
+    const currentMonth = new Date().getMonth();
+    const orderedMonths = [];
+
+    for (let i = 0; i < 12; i++) {
+      const monthIndex = (currentMonth - i + 12) % 12; // Ensure it wraps around
+      orderedMonths.push(monthlyActivity[monthIndex]);
     }
-  });
 
-  // Process issues
-  issues.nodes.forEach((issue) => {
-    const date = new Date(issue.createdAt);
-    // Only count issues from the last year
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-
-    if (date >= oneYearAgo) {
-      const month = date.getMonth();
-      monthlyActivity[month].issues += 1;
-    }
-  });
-
-  // Reorder months to start from current month and go back 1 year
-  const currentMonth = new Date().getMonth();
-  const orderedMonths = [];
-
-  for (let i = 0; i < 12; i++) {
-    const monthIndex = (currentMonth - i + 12) % 12; // Ensure it wraps around
-    orderedMonths.push(monthlyActivity[monthIndex]);
+    return orderedMonths.reverse(); // Reverse to show oldest to newest
   }
+  function calculateActivityStats(user) {
+    const { contributionsCollection } = user;
+    const calendar = contributionsCollection.contributionCalendar;
 
-  return orderedMonths.reverse(); // Reverse to show oldest to newest
-}
+    // Find most active day of week
+    const dayOfWeekCounts = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
+    let totalDays = 0;
+    let daysWithActivity = 0;
+    let totalContributions = 0;
+
+    // For longest streak calculation
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let previousDate = null;
+
+    calendar.weeks.forEach((week) => {
+      week.contributionDays.forEach((day) => {
+        const date = new Date(day.date);
+        const dayOfWeek = date.getDay();
+
+        // Count contributions by day of week
+        if (day.contributionCount > 0) {
+          dayOfWeekCounts[dayOfWeek] += day.contributionCount;
+          daysWithActivity++;
+          totalContributions += day.contributionCount;
+
+          // Check for streaks
+          if (previousDate) {
+            // Check if this is the next day after previous contribution
+            const dayDiff = Math.floor(
+              (date - previousDate) / (1000 * 60 * 60 * 24)
+            );
+            if (dayDiff === 1) {
+              currentStreak++;
+              longestStreak = Math.max(longestStreak, currentStreak);
+            } else if (dayDiff > 1) {
+              // Reset streak on gap
+              currentStreak = 1;
+            }
+          } else {
+            currentStreak = 1;
+          }
+
+          previousDate = date;
+        }
+
+        totalDays++;
+      });
+    });
+
+    const mostActiveDayIndex = dayOfWeekCounts.indexOf(
+      Math.max(...dayOfWeekCounts)
+    );
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+
+    // We can't get peak hour from GitHub API directly, but we can estimate
+    // For now, use a placeholder or randomly select a common working hour
+
+    return {
+      mostActiveDay: dayNames[mostActiveDayIndex],
+      avgCommitsPerDay:
+        daysWithActivity > 0
+          ? Math.round((totalContributions / daysWithActivity) * 10) / 10
+          : 0,
+      longestStreak: Math.max(longestStreak, currentStreak),
+      peakHour: "2-3 PM", // Placeholder - GitHub API doesn't provide hourly data
+      activityRate: Math.round(
+        (daysWithActivity / Math.max(1, totalDays)) * 100
+      ),
+    };
+  }
   function generateMonthLabels(includePreviousMonth = true) {
     const months = [];
 
@@ -748,19 +829,33 @@ function calculateMonthlyActivity(user) {
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Most Active Day</span>
-                      <Badge variant="secondary">Wednesday</Badge>
+                      <Badge variant="secondary">
+                        {profileData.activityStats.mostActiveDay}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Peak Hour</span>
-                      <Badge variant="secondary">2-3 PM</Badge>
+                      <Badge variant="secondary">
+                        {profileData.activityStats.peakHour}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Avg Commits/Day</span>
-                      <Badge variant="secondary">3.4</Badge>
+                      <Badge variant="secondary">
+                        {profileData.activityStats.avgCommitsPerDay}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Longest Streak</span>
-                      <Badge variant="secondary">89 days</Badge>
+                      <Badge variant="secondary">
+                        {profileData.activityStats.longestStreak} days
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Activity Rate</span>
+                      <Badge variant="secondary">
+                        {profileData.activityStats.activityRate}%
+                      </Badge>
                     </div>
                   </CardContent>
                 </Card>
