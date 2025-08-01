@@ -206,6 +206,7 @@ totalCommitContributions
           setChartData(chartData);
           const monthlyActivityData = calculateMonthlyActivity(user);
           const activityStats = calculateActivityStats(user);
+          const profileInsights = generateProfileInsights(user);
           // Map profile data
           const mappedProfileData = {
             username: user.username,
@@ -243,6 +244,11 @@ totalCommitContributions
             })),
             monthlyActivityData,
             activityStats,
+            insights: profileInsights.insights,
+            recommendations: profileInsights.recommendations,
+            skillLevel: profileInsights.skillLevel,
+            activityLevel: profileInsights.activityLevel,
+            communityImpact: profileInsights.communityImpact,
           };
 
           setProfileData(mappedProfileData);
@@ -259,6 +265,219 @@ totalCommitContributions
     fetchProfile();
   }, [username]);
 
+
+function generateProfileInsights(user) {
+  // Store insights we'll display
+  const insights = [];
+  const recommendations = [];
+
+  // Calculate developer metrics
+  const activityLevel = calculateActivityLevel(user);
+  const skillLevel = calculateSkillLevel(user);
+  const communityImpact = calculateCommunityImpact(user);
+
+  // Activity insight
+  const streak = user.contributionsCollection.contributionCalendar.weeks.reduce(
+    (max, week) => {
+      let currentStreak = 0;
+      week.contributionDays.forEach((day) => {
+        currentStreak = day.contributionCount > 0 ? currentStreak + 1 : 0;
+        max = Math.max(max, currentStreak);
+      });
+      return max;
+    },
+    0
+  );
+
+  const totalContributions =
+    user.contributionsCollection.contributionCalendar.totalContributions;
+  const totalDays = 365;
+  const activityRate = (totalContributions / totalDays).toFixed(1);
+
+  if (streak > 20) {
+    insights.push({
+      title: "🚀 High Activity Developer",
+      description: `Maintains consistent contribution patterns with a ${streak}-day streak. Shows strong commitment to open source development with an average of ${activityRate} contributions per day.`,
+      type: "activity",
+    });
+  } else if (streak > 7) {
+    insights.push({
+      title: "📈 Regular Contributor",
+      description: `Maintains a healthy contribution pattern with a ${streak}-day streak. Shows good engagement with projects.`,
+      type: "activity",
+    });
+  } else {
+    insights.push({
+      title: "🔄 Occasional Contributor",
+      description: `Contributes occasionally with a ${streak}-day streak. Activity pattern shows focused work periods.`,
+      type: "activity",
+    });
+  }
+
+  // Language diversity insight
+  const languages = user.repositories.nodes
+    .filter((repo) => repo.primaryLanguage)
+    .map((repo) => repo.primaryLanguage.name);
+
+  const uniqueLanguages = [...new Set(languages)];
+
+  if (uniqueLanguages.length > 5) {
+    insights.push({
+      title: "💡 Polyglot Programmer",
+      description: `Demonstrates expertise across ${
+        uniqueLanguages.length
+      } programming languages, with strong focus on ${uniqueLanguages
+        .slice(0, 2)
+        .join(" and ")}.`,
+      type: "polyglot",
+    });
+  } else if (uniqueLanguages.length > 2) {
+    insights.push({
+      title: "💻 Multi-language Developer",
+      description: `Works with ${uniqueLanguages.length} programming languages, primarily focusing on ${uniqueLanguages[0]}.`,
+      type: "polyglot",
+    });
+  } else {
+    insights.push({
+      title: "🔍 Specialized Developer",
+      description: `Focused expertise in ${uniqueLanguages.join(
+        " and "
+      )}, showing depth of knowledge in specific technologies.`,
+      type: "polyglot",
+    });
+  }
+
+  // Community impact insight
+  const totalStars = user.repositories.nodes.reduce(
+    (sum, repo) => sum + repo.stargazerCount,
+    0
+  );
+  const totalForks = user.repositories.nodes.reduce(
+    (sum, repo) => sum + repo.forkCount,
+    0
+  );
+
+  if (totalStars > 1000) {
+    insights.push({
+      title: "🌟 Significant Community Impact",
+      description: `High star count (${totalStars.toLocaleString()}) and forks (${totalForks.toLocaleString()}) indicate valuable contributions to the developer community.`,
+      type: "impact",
+    });
+  } else if (totalStars > 100) {
+    insights.push({
+      title: "👥 Growing Community Presence",
+      description: `${totalStars.toLocaleString()} stars across projects show promising developer community impact.`,
+      type: "impact",
+    });
+  } else {
+    insights.push({
+      title: "🌱 Emerging Developer",
+      description: `Building a foundation with ${user.repositories.totalCount} repositories and growing community engagement.`,
+      type: "impact",
+    });
+  }
+
+  // Generate recommendations
+  // Check for repositories without descriptions
+  const reposWithoutDesc = user.repositories.nodes.filter(
+    (repo) => !repo.description
+  ).length;
+  if (reposWithoutDesc > 0) {
+    recommendations.push({
+      title: "Add more documentation",
+      description: `Consider adding descriptions to ${reposWithoutDesc} repositories that lack them.`,
+      type: "blue",
+    });
+  }
+
+  // Check language diversity
+  if (uniqueLanguages.length < 3) {
+    recommendations.push({
+      title: "Explore new technologies",
+      description:
+        "Consider expanding your technology stack with complementary languages or frameworks.",
+      type: "green",
+    });
+  }
+
+  // Check collaboration
+  const collaborationRecommendation = {
+    title: "Increase collaboration",
+    description:
+      "Participate in more open source projects to expand your network and visibility.",
+    type: "orange",
+  };
+  recommendations.push(collaborationRecommendation);
+
+  return {
+    insights,
+    recommendations,
+    skillLevel,
+    activityLevel,
+    communityImpact,
+  };
+}
+
+// Helper functions for profile summary
+function calculateActivityLevel(user) {
+  const totalContributions =
+    user.contributionsCollection.contributionCalendar.totalContributions;
+  if (totalContributions > 1000) return "Very High";
+  if (totalContributions > 500) return "High";
+  if (totalContributions > 200) return "Moderate";
+  if (totalContributions > 50) return "Low";
+  return "Minimal";
+}
+
+function calculateSkillLevel(user) {
+  // Approximating skill level based on various metrics
+  const repos = user.repositories.totalCount;
+  const languages = [
+    ...new Set(
+      user.repositories.nodes
+        .filter((repo) => repo.primaryLanguage)
+        .map((repo) => repo.primaryLanguage.name)
+    ),
+  ];
+  const stars = user.repositories.nodes.reduce(
+    (sum, repo) => sum + repo.stargazerCount,
+    0
+  );
+  const age =
+    (new Date() - new Date(user.createdAt)) / (1000 * 60 * 60 * 24 * 365);
+
+  let points = 0;
+  points += Math.min(repos * 2, 40); // Max 40 points from repos
+  points += Math.min(languages.length * 5, 25); // Max 25 points from language diversity
+  points += Math.min(Math.log10(stars + 1) * 15, 25); // Max 25 points from stars (logarithmic)
+  points += Math.min(age * 2, 10); // Max 10 points from account age
+
+  if (points > 80) return "Expert";
+  if (points > 60) return "Advanced";
+  if (points > 40) return "Intermediate";
+  if (points > 20) return "Beginner";
+  return "Novice";
+}
+
+function calculateCommunityImpact(user) {
+  const stars = user.repositories.nodes.reduce(
+    (sum, repo) => sum + repo.stargazerCount,
+    0
+  );
+  const forks = user.repositories.nodes.reduce(
+    (sum, repo) => sum + repo.forkCount,
+    0
+  );
+  const followers = user.followers.totalCount;
+
+  const impact = stars * 0.5 + forks * 1 + followers * 2;
+
+  if (impact > 5000) return "Exceptional";
+  if (impact > 1000) return "Strong";
+  if (impact > 500) return "Moderate";
+  if (impact > 100) return "Growing";
+  return "Emerging";
+}
   function calculateMonthlyActivity(user) {
     const { contributionsCollection, pullRequests, issues } = user;
     const calendar = contributionsCollection.contributionCalendar;
@@ -972,38 +1191,41 @@ totalCommitContributions
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                        🚀 High Activity Developer
-                      </h4>
-                      <p className="text-sm text-blue-800 dark:text-blue-200">
-                        Maintains consistent contribution patterns with a 42-day
-                        streak. Shows strong commitment to open source
-                        development.
-                      </p>
-                    </div>
-
-                    <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
-                      <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
-                        💡 Polyglot Programmer
-                      </h4>
-                      <p className="text-sm text-green-800 dark:text-green-200">
-                        Demonstrates expertise across multiple programming
-                        languages, with strong focus on JavaScript and
-                        TypeScript.
-                      </p>
-                    </div>
-
-                    <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
-                      <h4 className="font-medium text-purple-900 dark:text-purple-100 mb-2">
-                        🌟 Community Impact
-                      </h4>
-                      <p className="text-sm text-purple-800 dark:text-purple-200">
-                        High star count indicates valuable contributions to the
-                        developer community. Projects show good documentation
-                        and maintenance.
-                      </p>
-                    </div>
+                    {profileData?.insights.map((insight, index) => (
+                      <div
+                        key={index}
+                        className={`p-4 ${
+                          insight.type === "activity"
+                            ? "bg-blue-50 dark:bg-blue-950"
+                            : insight.type === "polyglot"
+                            ? "bg-green-50 dark:bg-green-950"
+                            : "bg-purple-50 dark:bg-purple-950"
+                        } rounded-lg`}
+                      >
+                        <h4
+                          className={`font-medium ${
+                            insight.type === "activity"
+                              ? "text-blue-900 dark:text-blue-100"
+                              : insight.type === "polyglot"
+                              ? "text-green-900 dark:text-green-100"
+                              : "text-purple-900 dark:text-purple-100"
+                          } mb-2`}
+                        >
+                          {insight.title}
+                        </h4>
+                        <p
+                          className={`text-sm ${
+                            insight.type === "activity"
+                              ? "text-blue-800 dark:text-blue-200"
+                              : insight.type === "polyglot"
+                              ? "text-green-800 dark:text-green-200"
+                              : "text-purple-800 dark:text-purple-200"
+                          }`}
+                        >
+                          {insight.description}
+                        </p>
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
 
@@ -1015,44 +1237,23 @@ totalCommitContributions
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-medium text-sm">
-                          Add more documentation
-                        </h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-300">
-                          Consider adding README files to repositories without
-                          documentation
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-medium text-sm">
-                          Explore new technologies
-                        </h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-300">
-                          Consider learning emerging technologies like
-                          WebAssembly or GraphQL
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-medium text-sm">
-                          Increase collaboration
-                        </h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-300">
-                          Participate in more open source projects to expand
-                          network
-                        </p>
-                      </div>
-                    </div>
+                    {profileData.recommendations.map(
+                      (recommendation, index) => (
+                        <div key={index} className="flex items-start gap-3">
+                          <div
+                            className={`w-2 h-2 bg-${recommendation.type}-500 rounded-full mt-2 flex-shrink-0`}
+                          />
+                          <div>
+                            <h4 className="font-medium text-sm">
+                              {recommendation.title}
+                            </h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-300">
+                              {recommendation.description}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1067,7 +1268,7 @@ totalCommitContributions
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="text-center">
                         <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
-                          Expert
+                          {profileData.skillLevel}
                         </div>
                         <div className="text-sm text-slate-600 dark:text-slate-300">
                           Skill Level
@@ -1079,7 +1280,7 @@ totalCommitContributions
 
                       <div className="text-center">
                         <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">
-                          High
+                          {profileData.activityLevel}
                         </div>
                         <div className="text-sm text-slate-600 dark:text-slate-300">
                           Activity Level
@@ -1091,7 +1292,7 @@ totalCommitContributions
 
                       <div className="text-center">
                         <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2">
-                          Strong
+                          {profileData.communityImpact}
                         </div>
                         <div className="text-sm text-slate-600 dark:text-slate-300">
                           Community Impact
