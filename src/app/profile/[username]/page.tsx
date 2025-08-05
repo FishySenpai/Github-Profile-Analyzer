@@ -1267,40 +1267,119 @@ function calculateCommunityImpact(user) {
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                        <div
+                          className={`text-3xl font-bold ${
+                            profileData.skillLevel === "Expert"
+                              ? "text-blue-600 dark:text-blue-400"
+                              : profileData.skillLevel === "Advanced"
+                              ? "text-green-600 dark:text-green-400"
+                              : profileData.skillLevel === "Intermediate"
+                              ? "text-yellow-600 dark:text-yellow-400"
+                              : "text-gray-600 dark:text-gray-400"
+                          } mb-2`}
+                        >
                           {profileData.skillLevel}
                         </div>
                         <div className="text-sm text-slate-600 dark:text-slate-300">
                           Skill Level
                         </div>
                         <p className="text-xs mt-1">
-                          Based on code complexity and contribution patterns
+                          {profileData.skillLevel === "Expert"
+                            ? "Demonstrates mastery across multiple domains"
+                            : profileData.skillLevel === "Advanced"
+                            ? "Shows strong technical competence"
+                            : profileData.skillLevel === "Intermediate"
+                            ? "Growing expertise and capability"
+                            : "Building foundational skills"}
                         </p>
                       </div>
 
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">
+                        <div
+                          className={`text-3xl font-bold ${
+                            profileData.activityLevel === "Very High"
+                              ? "text-green-600 dark:text-green-400"
+                              : profileData.activityLevel === "High"
+                              ? "text-teal-600 dark:text-teal-400"
+                              : profileData.activityLevel === "Moderate"
+                              ? "text-yellow-600 dark:text-yellow-400"
+                              : "text-orange-600 dark:text-orange-400"
+                          } mb-2`}
+                        >
                           {profileData.activityLevel}
                         </div>
                         <div className="text-sm text-slate-600 dark:text-slate-300">
                           Activity Level
                         </div>
                         <p className="text-xs mt-1">
-                          Consistent daily contributions and engagement
+                          {profileData.activityStats?.activityRate > 75
+                            ? "Exceptionally active contributor"
+                            : profileData.activityStats?.activityRate > 50
+                            ? "Regular and consistent contributions"
+                            : profileData.activityStats?.activityRate > 25
+                            ? "Periodic engagement"
+                            : "Occasional contributions"}
                         </p>
                       </div>
 
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                        <div
+                          className={`text-3xl font-bold ${
+                            profileData.communityImpact === "Exceptional"
+                              ? "text-purple-600 dark:text-purple-400"
+                              : profileData.communityImpact === "Strong"
+                              ? "text-indigo-600 dark:text-indigo-400"
+                              : profileData.communityImpact === "Moderate"
+                              ? "text-blue-600 dark:text-blue-400"
+                              : profileData.communityImpact === "Growing"
+                              ? "text-cyan-600 dark:text-cyan-400"
+                              : "text-sky-600 dark:text-sky-400"
+                          } mb-2`}
+                        >
                           {profileData.communityImpact}
                         </div>
                         <div className="text-sm text-slate-600 dark:text-slate-300">
                           Community Impact
                         </div>
                         <p className="text-xs mt-1">
-                          Valuable contributions with high engagement
+                          {profileData.communityImpact === "Exceptional"
+                            ? "Major influence in developer community"
+                            : profileData.communityImpact === "Strong"
+                            ? "Significant contributions and recognition"
+                            : profileData.communityImpact === "Moderate"
+                            ? "Growing influence and reach"
+                            : profileData.communityImpact === "Growing"
+                            ? "Building community presence"
+                            : "Early community engagement"}
                         </p>
                       </div>
+                    </div>
+
+                    {/* Add a summary section that combines all aspects */}
+                    <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                      <p className="text-sm text-center text-slate-700 dark:text-slate-300">
+                        {profileData.username} is a{" "}
+                        <span className="font-semibold">
+                          {profileData.skillLevel.toLowerCase()}
+                        </span>{" "}
+                        developer with{" "}
+                        <span className="font-semibold">
+                          {profileData.activityLevel.toLowerCase()}
+                        </span>{" "}
+                        activity and{" "}
+                        <span className="font-semibold">
+                          {profileData.communityImpact.toLowerCase()}
+                        </span>{" "}
+                        community impact.
+                        {profileData.languages &&
+                          profileData.languages.length > 0 &&
+                          ` Primarily works with ${profileData.languages
+                            .slice(0, 2)
+                            .map((l) => l.name)
+                            .join(" and ")}.`}
+                        {profileData.contributionStreak > 10 &&
+                          ` Currently on a ${profileData.contributionStreak}-day contribution streak.`}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
