@@ -110,17 +110,13 @@ export default function HomePage() {
                   className="pl-10 h-12 text-base"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && fetchProfile()}
+                  onKeyDown={(e) => e.key === "Enter" && fetchProfile()}
                 />
               </div>
               <Button
                 size="lg"
                 className="h-12 px-6"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    fetchProfile();
-                  }
-                }}
+
                 onClick={fetchProfile}
                 disabled={loading}
               >

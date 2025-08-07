@@ -218,6 +218,7 @@ totalCommitContributions
           const activityStats = calculateActivityStats(user);
           const profileInsights = generateProfileInsights(user);
           const repositoryStats = calculateRepositoryStats(user);
+          const productivityScore = calculateProductivityScore(user);
           // Map profile data
           const mappedProfileData = {
             username: user.username,
@@ -274,6 +275,7 @@ totalCommitContributions
             activityLevel: profileInsights.activityLevel,
             communityImpact: profileInsights.communityImpact,
             repositoryStats,
+            productivityScore,
           };
 
           setProfileData(mappedProfileData);
@@ -289,7 +291,132 @@ totalCommitContributions
 
     fetchProfile();
   }, [username]);
+function calculateProductivityScore(user) {
+  const { contributionsCollection, repositories } = user;
+  const calendar = contributionsCollection.contributionCalendar;
 
+  // 1. CONSISTENCY SCORE (0-100)
+  // Based on how regularly the user contributes
+  const weeks = calendar.weeks;
+  const weeksWithActivity = weeks.filter((week) =>
+    week.contributionDays.some((day) => day.contributionCount > 0)
+  ).length;
+
+  const consistencyScore = Math.round((weeksWithActivity / weeks.length) * 100);
+
+  // 2. QUALITY SCORE (0-100)
+  // Based on stars-to-repos ratio and repository engagement
+  const totalStars = repositories.nodes.reduce(
+    (sum, repo) => sum + repo.stargazerCount,
+    0
+  );
+  const totalForks = repositories.nodes.reduce(
+    (sum, repo) => sum + repo.forkCount,
+    0
+  );
+  const totalRepos = repositories.nodes.filter((repo) => !repo.isFork).length; // Only original repos
+
+  // Calculate average engagement per repository
+  const avgStarsPerRepo = totalRepos > 0 ? totalStars / totalRepos : 0;
+  const avgForksPerRepo = totalRepos > 0 ? totalForks / totalRepos : 0;
+
+  // Quality score based on engagement (logarithmic scale to handle outliers)
+  const engagementScore = Math.min(
+    100,
+    Math.log10(avgStarsPerRepo + 1) * 25 +
+      Math.log10(avgForksPerRepo + 1) * 20 +
+      (repositories.nodes.filter((repo) => repo.description).length /
+        Math.max(1, totalRepos)) *
+        30 + // Documentation
+      25 // Base score
+  );
+
+  const qualityScore = Math.round(engagementScore);
+
+  // 3. IMPACT SCORE (0-100)
+  // Based on community reach and contribution volume
+  const totalContributions = calendar.totalContributions;
+  const followers = user.followers.totalCount;
+  const contributedRepos = user.repositoriesContributedTo?.totalCount || 0;
+
+  // Normalize impact metrics
+  const contributionImpact = Math.min(40, (totalContributions / 365) * 10); // Max 40 points
+  const communityImpact = Math.min(30, Math.log10(followers + 1) * 10); // Max 30 points
+  const collaborationImpact = Math.min(30, contributedRepos * 2); // Max 30 points
+
+  const impactScore = Math.round(
+    contributionImpact + communityImpact + collaborationImpact
+  );
+
+  // 4. OVERALL SCORE AND GRADE
+  const overallScore = Math.round(
+    (consistencyScore + qualityScore + impactScore) / 3
+  );
+
+  const getGrade = (score) => {
+    if (score >= 90)
+      return {
+        grade: "A+",
+        color:
+          "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      };
+    if (score >= 80)
+      return {
+        grade: "A",
+        color:
+          "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      };
+    if (score >= 70)
+      return {
+        grade: "B+",
+        color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      };
+    if (score >= 60)
+      return {
+        grade: "B",
+        color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      };
+    if (score >= 50)
+      return {
+        grade: "C+",
+        color:
+          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      };
+    if (score >= 40)
+      return {
+        grade: "C",
+        color:
+          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      };
+    return {
+      grade: "D",
+      color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    };
+  };
+
+  const gradeInfo = getGrade(overallScore);
+
+  return {
+    consistency: consistencyScore,
+    quality: qualityScore,
+    impact: impactScore,
+    overall: overallScore,
+    grade: gradeInfo.grade,
+    gradeColor: gradeInfo.color,
+    // Additional insights
+    insights: {
+      weeksActive: weeksWithActivity,
+      totalWeeks: weeks.length,
+      avgStarsPerRepo: Math.round(avgStarsPerRepo * 10) / 10,
+      avgForksPerRepo: Math.round(avgForksPerRepo * 10) / 10,
+      documentationRate: Math.round(
+        (repositories.nodes.filter((repo) => repo.description).length /
+          Math.max(1, totalRepos)) *
+          100
+      ),
+    },
+  };
+}
   function calculateRepositoryStats(user) {
     const repositories = user.repositories.nodes;
 
@@ -1157,190 +1284,233 @@ totalCommitContributions
                   <CardHeader>
                     <CardTitle>Productivity Score</CardTitle>
                     <CardDescription>
-                      Based on contribution patterns
+                      Based on contribution patterns and code quality
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Consistency</span>
-                        <span>92%</span>
+                        <span>
+                          {profileData.productivityScore.consistency}%
+                        </span>
                       </div>
-                      <Progress value={92} className="h-2" />
+                      <Progress
+                        value={profileData.productivityScore.consistency}
+                        className="h-2"
+                      />
+                      <p className="text-xs text-slate-500">
+                        Active in{" "}
+                        {profileData.productivityScore.insights.weeksActive} of{" "}
+                        {profileData.productivityScore.insights.totalWeeks}{" "}
+                        weeks
+                      </p>
                     </div>
+
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Quality</span>
-                        <span>88%</span>
+                        <span>{profileData.productivityScore.quality}%</span>
                       </div>
-                      <Progress value={88} className="h-2" />
+                      <Progress
+                        value={profileData.productivityScore.quality}
+                        className="h-2"
+                      />
+                      <p className="text-xs text-slate-500">
+                        Avg{" "}
+                        {profileData.productivityScore.insights.avgStarsPerRepo}{" "}
+                        stars/repo,{" "}
+                        {
+                          profileData.productivityScore.insights
+                            .documentationRate
+                        }
+                        % documented
+                      </p>
                     </div>
+
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Impact</span>
-                        <span>95%</span>
+                        <span>{profileData.productivityScore.impact}%</span>
                       </div>
-                      <Progress value={95} className="h-2" />
+                      <Progress
+                        value={profileData.productivityScore.impact}
+                        className="h-2"
+                      />
+                      <p className="text-xs text-slate-500">
+                        Community reach and collaboration activity
+                      </p>
                     </div>
+
                     <div className="pt-2 border-t">
                       <div className="flex justify-between items-center">
                         <span className="font-medium">Overall Score</span>
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                          A+
+                        <Badge
+                          className={profileData.productivityScore.gradeColor}
+                        >
+                          {profileData.productivityScore.grade}
                         </Badge>
                       </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {profileData.productivityScore.overall}/100 -{" "}
+                        {profileData.productivityScore.overall >= 80
+                          ? "Excellent productivity!"
+                          : profileData.productivityScore.overall >= 60
+                          ? "Good productivity patterns"
+                          : profileData.productivityScore.overall >= 40
+                          ? "Room for improvement"
+                          : "Consider increasing activity"}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
               </div>
             </TabsContent>
 
-<TabsContent value="repositories" className="space-y-6">
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div className="lg:col-span-2 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">
-          {showAllRepos ? 'All Repositories' : 'Top Repositories'}
-        </h3>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAllRepos(!showAllRepos)}
-          >
-            {showAllRepos ? 'Show Top Only' : 'Show All'}
-          </Button>
-        </div>
-      </div>
-
-                    {/* Repository Grid */}
-                    <div className="space-y-3">
-                      {(showAllRepos
-                        ? profileData.allRepos
-                        : profileData.topRepos
-                      )
-                        .slice(0, showAllRepos ? displayedRepos : 6)
-                        .map((repo, index) => (
-                          <EnhancedRepositoryCard
-                            key={repo.name}
-                            repo={repo}
-                            rank={index + 1}
-                            onClick={() => setSelectedRepo(repo)}
-                          />
-                        ))}
-                    </div>
-
-                    {/* Load More Button */}
-                    {showAllRepos &&
-                      displayedRepos < profileData.allRepos.length && (
-                        <div className="flex justify-center pt-4">
-                          <Button
-                            variant="outline"
-                            onClick={() =>
-                              setDisplayedRepos((prev) => prev + 6)
-                            }
-                          >
-                            Load More Repositories (
-                            {profileData.allRepos.length - displayedRepos}{" "}
-                            remaining)
-                          </Button>
-                        </div>
-                      )}
-
-                    {/* Repository count info */}
-                    <div className="text-center text-sm text-slate-600 dark:text-slate-400 pt-2">
-                      Showing{" "}
-                      {Math.min(
-                        displayedRepos,
-                        showAllRepos ? profileData.allRepos.length : 6
-                      )}{" "}
-                      of{" "}
-                      {showAllRepos
-                        ? profileData.allRepos.length
-                        : profileData.topRepos.length}{" "}
-                      repositories
+            <TabsContent value="repositories" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">
+                      {showAllRepos ? "All Repositories" : "Top Repositories"}
+                    </h3>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAllRepos(!showAllRepos)}
+                      >
+                        {showAllRepos ? "Show Top Only" : "Show All"}
+                      </Button>
                     </div>
                   </div>
 
-                  {/* Sidebar with stats - keep existing code */}
-                  <div className="space-y-6">
-                    {/* Repository Stats Card - keep existing */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Repository Stats</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="flex justify-between">
-                          <span className="text-sm">Public Repos</span>
-                          <span className="font-medium">
-                            {profileData.repositoryStats.publicRepos}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Private Repos</span>
-                          <span className="font-medium">
-                            {profileData.repositoryStats.privateRepos}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Forked Repos</span>
-                          <span className="font-medium">
-                            {profileData.repositoryStats.forkedRepos}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Original Repos</span>
-                          <span className="font-medium">
-                            {profileData.repositoryStats.originalRepos}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Contributed To</span>
-                          <span className="font-medium">
-                            {profileData.repositoryStats.contributedTo}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Total Stars</span>
-                          <span className="font-medium">
-                            {profileData.repositoryStats.totalStars.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Avg Stars/Repo</span>
-                          <span className="font-medium">
-                            {profileData.repositoryStats.averageStarsPerRepo}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  {/* Repository Grid */}
+                  <div className="space-y-3">
+                    {(showAllRepos
+                      ? profileData.allRepos
+                      : profileData.topRepos
+                    )
+                      .slice(0, showAllRepos ? displayedRepos : 6)
+                      .map((repo, index) => (
+                        <EnhancedRepositoryCard
+                          key={repo.name}
+                          repo={repo}
+                          rank={index + 1}
+                          onClick={() => setSelectedRepo(repo)}
+                        />
+                      ))}
+                  </div>
 
-                    {/* Repository Languages Card - keep existing */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Repository Languages</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {profileData.languages.map((lang) => (
-                          <div key={lang.name} className="space-y-1">
-                            <div className="flex justify-between text-sm">
-                              <span>{lang.name}</span>
-                              <span>{lang.percentage}%</span>
-                            </div>
-                            <Progress value={lang.percentage} className="h-2" />
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
+                  {/* Load More Button */}
+                  {showAllRepos &&
+                    displayedRepos < profileData.allRepos.length && (
+                      <div className="flex justify-center pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setDisplayedRepos((prev) => prev + 6)}
+                        >
+                          Load More Repositories (
+                          {profileData.allRepos.length - displayedRepos}{" "}
+                          remaining)
+                        </Button>
+                      </div>
+                    )}
+
+                  {/* Repository count info */}
+                  <div className="text-center text-sm text-slate-600 dark:text-slate-400 pt-2">
+                    Showing{" "}
+                    {Math.min(
+                      displayedRepos,
+                      showAllRepos ? profileData.allRepos.length : 6
+                    )}{" "}
+                    of{" "}
+                    {showAllRepos
+                      ? profileData.allRepos.length
+                      : profileData.topRepos.length}{" "}
+                    repositories
                   </div>
                 </div>
 
-                {/* Repository Detail Modal */}
-                <RepositoryDetailModal
-                  repo={selectedRepo}
-                  isOpen={!!selectedRepo}
-                  onClose={() => setSelectedRepo(null)}
-                />
+                {/* Sidebar with stats - keep existing code */}
+                <div className="space-y-6">
+                  {/* Repository Stats Card - keep existing */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Repository Stats</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex justify-between">
+                        <span className="text-sm">Public Repos</span>
+                        <span className="font-medium">
+                          {profileData.repositoryStats.publicRepos}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Private Repos</span>
+                        <span className="font-medium">
+                          {profileData.repositoryStats.privateRepos}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Forked Repos</span>
+                        <span className="font-medium">
+                          {profileData.repositoryStats.forkedRepos}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Original Repos</span>
+                        <span className="font-medium">
+                          {profileData.repositoryStats.originalRepos}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Contributed To</span>
+                        <span className="font-medium">
+                          {profileData.repositoryStats.contributedTo}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Total Stars</span>
+                        <span className="font-medium">
+                          {profileData.repositoryStats.totalStars.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Avg Stars/Repo</span>
+                        <span className="font-medium">
+                          {profileData.repositoryStats.averageStarsPerRepo}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Repository Languages Card - keep existing */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Repository Languages</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {profileData.languages.map((lang) => (
+                        <div key={lang.name} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span>{lang.name}</span>
+                            <span>{lang.percentage}%</span>
+                          </div>
+                          <Progress value={lang.percentage} className="h-2" />
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Repository Detail Modal */}
+              <RepositoryDetailModal
+                repo={selectedRepo}
+                isOpen={!!selectedRepo}
+                onClose={() => setSelectedRepo(null)}
+              />
             </TabsContent>
 
             <TabsContent value="insights" className="space-y-6">
