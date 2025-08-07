@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { fetchGitHubGraphQL } from "../../../../lib/github";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EnhancedRepositoryCard } from "@/components/enhanced-repository-card";
+import { RepositoryDetailModal } from "@/components/repository-detail-modal";
 import {
   Card,
   CardContent,
@@ -97,6 +99,9 @@ export default function ProfileAnalysisPage({
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayedRepos, setDisplayedRepos] = useState(6); // Show 6 initially
+  const [selectedRepo, setSelectedRepo] = useState(null); // For detailed view
+  const [showAllRepos, setShowAllRepos] = useState(false);
   const username = params?.username;
   useEffect(() => {
     const fetchProfile = async () => {
@@ -131,12 +136,17 @@ export default function ProfileAnalysisPage({
                   isPrivate
                   updatedAt
                   createdAt
+                  isFork
+                  isPrivate
                   primaryLanguage {
                     name
                     color
                   }
                 }
               }
+              repositoriesContributedTo(first: 100) {
+                totalCount
+              }  
               contributionsCollection {
                 contributionCalendar {
                   totalContributions
@@ -207,6 +217,7 @@ totalCommitContributions
           const monthlyActivityData = calculateMonthlyActivity(user);
           const activityStats = calculateActivityStats(user);
           const profileInsights = generateProfileInsights(user);
+          const repositoryStats = calculateRepositoryStats(user);
           // Map profile data
           const mappedProfileData = {
             username: user.username,
@@ -232,7 +243,7 @@ totalCommitContributions
               user.contributionsCollection.contributionCalendar.weeks
             ),
             languages: calculateLanguageDistribution(user.repositories.nodes),
-            topRepos: user.repositories.nodes.slice(0, 3).map((repo) => ({
+            topRepos: user.repositories.nodes.slice(0, 10).map((repo) => ({
               name: repo.name,
               description: repo.description || "",
               language: repo.primaryLanguage?.name || "Unknown",
@@ -242,6 +253,19 @@ totalCommitContributions
               isPrivate: repo.isPrivate,
               updatedAt: repo.updatedAt,
             })),
+            allRepos: user.repositories.nodes.map((repo) => ({
+              name: repo.name,
+              description: repo.description || "",
+              language: repo.primaryLanguage?.name || "Unknown",
+              languageColor: repo.primaryLanguage?.color || "#888",
+              stars: repo.stargazerCount,
+              forks: repo.forkCount,
+              isPrivate: repo.isPrivate,
+              isFork: repo.isFork,
+              updatedAt: repo.updatedAt,
+              createdAt: repo.createdAt,
+              url: repo.url,
+            })),
             monthlyActivityData,
             activityStats,
             insights: profileInsights.insights,
@@ -249,6 +273,7 @@ totalCommitContributions
             skillLevel: profileInsights.skillLevel,
             activityLevel: profileInsights.activityLevel,
             communityImpact: profileInsights.communityImpact,
+            repositoryStats,
           };
 
           setProfileData(mappedProfileData);
@@ -265,219 +290,268 @@ totalCommitContributions
     fetchProfile();
   }, [username]);
 
+  function calculateRepositoryStats(user) {
+    const repositories = user.repositories.nodes;
 
-function generateProfileInsights(user) {
-  // Store insights we'll display
-  const insights = [];
-  const recommendations = [];
+    // Calculate different repository types
+    const publicRepos = repositories.filter((repo) => !repo.isPrivate).length;
+    const privateRepos = repositories.filter((repo) => repo.isPrivate).length;
+    const forkedRepos = repositories.filter((repo) => repo.isFork).length;
+    const originalRepos = repositories.filter((repo) => !repo.isFork).length;
 
-  // Calculate developer metrics
-  const activityLevel = calculateActivityLevel(user);
-  const skillLevel = calculateSkillLevel(user);
-  const communityImpact = calculateCommunityImpact(user);
+    // Get contributed repositories count from GraphQL
+    const contributedTo = user.repositoriesContributedTo?.totalCount || 0;
 
-  // Activity insight
-  const streak = user.contributionsCollection.contributionCalendar.weeks.reduce(
-    (max, week) => {
-      let currentStreak = 0;
-      week.contributionDays.forEach((day) => {
-        currentStreak = day.contributionCount > 0 ? currentStreak + 1 : 0;
-        max = Math.max(max, currentStreak);
+    // Calculate additional stats
+    const totalStars = repositories.reduce(
+      (sum, repo) => sum + repo.stargazerCount,
+      0
+    );
+    const totalForks = repositories.reduce(
+      (sum, repo) => sum + repo.forkCount,
+      0
+    );
+    const averageStarsPerRepo =
+      originalRepos > 0
+        ? Math.round((totalStars / originalRepos) * 10) / 10
+        : 0;
+
+    // Find most starred repository
+    const mostStarredRepo = repositories.reduce(
+      (max, repo) => (repo.stargazerCount > max.stargazerCount ? repo : max),
+      { stargazerCount: 0, name: "None" }
+    );
+
+    return {
+      publicRepos,
+      privateRepos,
+      forkedRepos,
+      originalRepos,
+      contributedTo,
+      totalRepos: user.repositories.totalCount,
+      totalStars,
+      totalForks,
+      averageStarsPerRepo,
+      mostStarredRepo: {
+        name: mostStarredRepo.name,
+        stars: mostStarredRepo.stargazerCount,
+      },
+    };
+  }
+
+  function generateProfileInsights(user) {
+    // Store insights we'll display
+    const insights = [];
+    const recommendations = [];
+
+    // Calculate developer metrics
+    const activityLevel = calculateActivityLevel(user);
+    const skillLevel = calculateSkillLevel(user);
+    const communityImpact = calculateCommunityImpact(user);
+
+    // Activity insight
+    const streak =
+      user.contributionsCollection.contributionCalendar.weeks.reduce(
+        (max, week) => {
+          let currentStreak = 0;
+          week.contributionDays.forEach((day) => {
+            currentStreak = day.contributionCount > 0 ? currentStreak + 1 : 0;
+            max = Math.max(max, currentStreak);
+          });
+          return max;
+        },
+        0
+      );
+
+    const totalContributions =
+      user.contributionsCollection.contributionCalendar.totalContributions;
+    const totalDays = 365;
+    const activityRate = (totalContributions / totalDays).toFixed(1);
+
+    if (streak > 20) {
+      insights.push({
+        title: "🚀 High Activity Developer",
+        description: `Maintains consistent contribution patterns with a ${streak}-day streak. Shows strong commitment to open source development with an average of ${activityRate} contributions per day.`,
+        type: "activity",
       });
-      return max;
-    },
-    0
-  );
+    } else if (streak > 7) {
+      insights.push({
+        title: "📈 Regular Contributor",
+        description: `Maintains a healthy contribution pattern with a ${streak}-day streak. Shows good engagement with projects.`,
+        type: "activity",
+      });
+    } else {
+      insights.push({
+        title: "🔄 Occasional Contributor",
+        description: `Contributes occasionally with a ${streak}-day streak. Activity pattern shows focused work periods.`,
+        type: "activity",
+      });
+    }
 
-  const totalContributions =
-    user.contributionsCollection.contributionCalendar.totalContributions;
-  const totalDays = 365;
-  const activityRate = (totalContributions / totalDays).toFixed(1);
+    // Language diversity insight
+    const languages = user.repositories.nodes
+      .filter((repo) => repo.primaryLanguage)
+      .map((repo) => repo.primaryLanguage.name);
 
-  if (streak > 20) {
-    insights.push({
-      title: "🚀 High Activity Developer",
-      description: `Maintains consistent contribution patterns with a ${streak}-day streak. Shows strong commitment to open source development with an average of ${activityRate} contributions per day.`,
-      type: "activity",
-    });
-  } else if (streak > 7) {
-    insights.push({
-      title: "📈 Regular Contributor",
-      description: `Maintains a healthy contribution pattern with a ${streak}-day streak. Shows good engagement with projects.`,
-      type: "activity",
-    });
-  } else {
-    insights.push({
-      title: "🔄 Occasional Contributor",
-      description: `Contributes occasionally with a ${streak}-day streak. Activity pattern shows focused work periods.`,
-      type: "activity",
-    });
-  }
+    const uniqueLanguages = [...new Set(languages)];
 
-  // Language diversity insight
-  const languages = user.repositories.nodes
-    .filter((repo) => repo.primaryLanguage)
-    .map((repo) => repo.primaryLanguage.name);
+    if (uniqueLanguages.length > 5) {
+      insights.push({
+        title: "💡 Polyglot Programmer",
+        description: `Demonstrates expertise across ${
+          uniqueLanguages.length
+        } programming languages, with strong focus on ${uniqueLanguages
+          .slice(0, 2)
+          .join(" and ")}.`,
+        type: "polyglot",
+      });
+    } else if (uniqueLanguages.length > 2) {
+      insights.push({
+        title: "💻 Multi-language Developer",
+        description: `Works with ${uniqueLanguages.length} programming languages, primarily focusing on ${uniqueLanguages[0]}.`,
+        type: "polyglot",
+      });
+    } else {
+      insights.push({
+        title: "🔍 Specialized Developer",
+        description: `Focused expertise in ${uniqueLanguages.join(
+          " and "
+        )}, showing depth of knowledge in specific technologies.`,
+        type: "polyglot",
+      });
+    }
 
-  const uniqueLanguages = [...new Set(languages)];
+    // Community impact insight
+    const totalStars = user.repositories.nodes.reduce(
+      (sum, repo) => sum + repo.stargazerCount,
+      0
+    );
+    const totalForks = user.repositories.nodes.reduce(
+      (sum, repo) => sum + repo.forkCount,
+      0
+    );
 
-  if (uniqueLanguages.length > 5) {
-    insights.push({
-      title: "💡 Polyglot Programmer",
-      description: `Demonstrates expertise across ${
-        uniqueLanguages.length
-      } programming languages, with strong focus on ${uniqueLanguages
-        .slice(0, 2)
-        .join(" and ")}.`,
-      type: "polyglot",
-    });
-  } else if (uniqueLanguages.length > 2) {
-    insights.push({
-      title: "💻 Multi-language Developer",
-      description: `Works with ${uniqueLanguages.length} programming languages, primarily focusing on ${uniqueLanguages[0]}.`,
-      type: "polyglot",
-    });
-  } else {
-    insights.push({
-      title: "🔍 Specialized Developer",
-      description: `Focused expertise in ${uniqueLanguages.join(
-        " and "
-      )}, showing depth of knowledge in specific technologies.`,
-      type: "polyglot",
-    });
-  }
+    if (totalStars > 1000) {
+      insights.push({
+        title: "🌟 Significant Community Impact",
+        description: `High star count (${totalStars.toLocaleString()}) and forks (${totalForks.toLocaleString()}) indicate valuable contributions to the developer community.`,
+        type: "impact",
+      });
+    } else if (totalStars > 100) {
+      insights.push({
+        title: "👥 Growing Community Presence",
+        description: `${totalStars.toLocaleString()} stars across projects show promising developer community impact.`,
+        type: "impact",
+      });
+    } else {
+      insights.push({
+        title: "🌱 Emerging Developer",
+        description: `Building a foundation with ${user.repositories.totalCount} repositories and growing community engagement.`,
+        type: "impact",
+      });
+    }
 
-  // Community impact insight
-  const totalStars = user.repositories.nodes.reduce(
-    (sum, repo) => sum + repo.stargazerCount,
-    0
-  );
-  const totalForks = user.repositories.nodes.reduce(
-    (sum, repo) => sum + repo.forkCount,
-    0
-  );
+    // Generate recommendations
+    // Check for repositories without descriptions
+    const reposWithoutDesc = user.repositories.nodes.filter(
+      (repo) => !repo.description
+    ).length;
+    if (reposWithoutDesc > 0) {
+      recommendations.push({
+        title: "Add more documentation",
+        description: `Consider adding descriptions to ${reposWithoutDesc} repositories that lack them.`,
+        type: "blue",
+      });
+    }
 
-  if (totalStars > 1000) {
-    insights.push({
-      title: "🌟 Significant Community Impact",
-      description: `High star count (${totalStars.toLocaleString()}) and forks (${totalForks.toLocaleString()}) indicate valuable contributions to the developer community.`,
-      type: "impact",
-    });
-  } else if (totalStars > 100) {
-    insights.push({
-      title: "👥 Growing Community Presence",
-      description: `${totalStars.toLocaleString()} stars across projects show promising developer community impact.`,
-      type: "impact",
-    });
-  } else {
-    insights.push({
-      title: "🌱 Emerging Developer",
-      description: `Building a foundation with ${user.repositories.totalCount} repositories and growing community engagement.`,
-      type: "impact",
-    });
-  }
+    // Check language diversity
+    if (uniqueLanguages.length < 3) {
+      recommendations.push({
+        title: "Explore new technologies",
+        description:
+          "Consider expanding your technology stack with complementary languages or frameworks.",
+        type: "green",
+      });
+    }
 
-  // Generate recommendations
-  // Check for repositories without descriptions
-  const reposWithoutDesc = user.repositories.nodes.filter(
-    (repo) => !repo.description
-  ).length;
-  if (reposWithoutDesc > 0) {
-    recommendations.push({
-      title: "Add more documentation",
-      description: `Consider adding descriptions to ${reposWithoutDesc} repositories that lack them.`,
-      type: "blue",
-    });
-  }
-
-  // Check language diversity
-  if (uniqueLanguages.length < 3) {
-    recommendations.push({
-      title: "Explore new technologies",
+    // Check collaboration
+    const collaborationRecommendation = {
+      title: "Increase collaboration",
       description:
-        "Consider expanding your technology stack with complementary languages or frameworks.",
-      type: "green",
-    });
+        "Participate in more open source projects to expand your network and visibility.",
+      type: "orange",
+    };
+    recommendations.push(collaborationRecommendation);
+
+    return {
+      insights,
+      recommendations,
+      skillLevel,
+      activityLevel,
+      communityImpact,
+    };
   }
 
-  // Check collaboration
-  const collaborationRecommendation = {
-    title: "Increase collaboration",
-    description:
-      "Participate in more open source projects to expand your network and visibility.",
-    type: "orange",
-  };
-  recommendations.push(collaborationRecommendation);
+  // Helper functions for profile summary
+  function calculateActivityLevel(user) {
+    const totalContributions =
+      user.contributionsCollection.contributionCalendar.totalContributions;
+    if (totalContributions > 1000) return "Very High";
+    if (totalContributions > 500) return "High";
+    if (totalContributions > 200) return "Moderate";
+    if (totalContributions > 50) return "Low";
+    return "Minimal";
+  }
 
-  return {
-    insights,
-    recommendations,
-    skillLevel,
-    activityLevel,
-    communityImpact,
-  };
-}
+  function calculateSkillLevel(user) {
+    // Approximating skill level based on various metrics
+    const repos = user.repositories.totalCount;
+    const languages = [
+      ...new Set(
+        user.repositories.nodes
+          .filter((repo) => repo.primaryLanguage)
+          .map((repo) => repo.primaryLanguage.name)
+      ),
+    ];
+    const stars = user.repositories.nodes.reduce(
+      (sum, repo) => sum + repo.stargazerCount,
+      0
+    );
+    const age =
+      (new Date() - new Date(user.createdAt)) / (1000 * 60 * 60 * 24 * 365);
 
-// Helper functions for profile summary
-function calculateActivityLevel(user) {
-  const totalContributions =
-    user.contributionsCollection.contributionCalendar.totalContributions;
-  if (totalContributions > 1000) return "Very High";
-  if (totalContributions > 500) return "High";
-  if (totalContributions > 200) return "Moderate";
-  if (totalContributions > 50) return "Low";
-  return "Minimal";
-}
+    let points = 0;
+    points += Math.min(repos * 2, 40); // Max 40 points from repos
+    points += Math.min(languages.length * 5, 25); // Max 25 points from language diversity
+    points += Math.min(Math.log10(stars + 1) * 15, 25); // Max 25 points from stars (logarithmic)
+    points += Math.min(age * 2, 10); // Max 10 points from account age
 
-function calculateSkillLevel(user) {
-  // Approximating skill level based on various metrics
-  const repos = user.repositories.totalCount;
-  const languages = [
-    ...new Set(
-      user.repositories.nodes
-        .filter((repo) => repo.primaryLanguage)
-        .map((repo) => repo.primaryLanguage.name)
-    ),
-  ];
-  const stars = user.repositories.nodes.reduce(
-    (sum, repo) => sum + repo.stargazerCount,
-    0
-  );
-  const age =
-    (new Date() - new Date(user.createdAt)) / (1000 * 60 * 60 * 24 * 365);
+    if (points > 80) return "Expert";
+    if (points > 60) return "Advanced";
+    if (points > 40) return "Intermediate";
+    if (points > 20) return "Beginner";
+    return "Novice";
+  }
 
-  let points = 0;
-  points += Math.min(repos * 2, 40); // Max 40 points from repos
-  points += Math.min(languages.length * 5, 25); // Max 25 points from language diversity
-  points += Math.min(Math.log10(stars + 1) * 15, 25); // Max 25 points from stars (logarithmic)
-  points += Math.min(age * 2, 10); // Max 10 points from account age
+  function calculateCommunityImpact(user) {
+    const stars = user.repositories.nodes.reduce(
+      (sum, repo) => sum + repo.stargazerCount,
+      0
+    );
+    const forks = user.repositories.nodes.reduce(
+      (sum, repo) => sum + repo.forkCount,
+      0
+    );
+    const followers = user.followers.totalCount;
 
-  if (points > 80) return "Expert";
-  if (points > 60) return "Advanced";
-  if (points > 40) return "Intermediate";
-  if (points > 20) return "Beginner";
-  return "Novice";
-}
+    const impact = stars * 0.5 + forks * 1 + followers * 2;
 
-function calculateCommunityImpact(user) {
-  const stars = user.repositories.nodes.reduce(
-    (sum, repo) => sum + repo.stargazerCount,
-    0
-  );
-  const forks = user.repositories.nodes.reduce(
-    (sum, repo) => sum + repo.forkCount,
-    0
-  );
-  const followers = user.followers.totalCount;
-
-  const impact = stars * 0.5 + forks * 1 + followers * 2;
-
-  if (impact > 5000) return "Exceptional";
-  if (impact > 1000) return "Strong";
-  if (impact > 500) return "Moderate";
-  if (impact > 100) return "Growing";
-  return "Emerging";
-}
+    if (impact > 5000) return "Exceptional";
+    if (impact > 1000) return "Strong";
+    if (impact > 500) return "Moderate";
+    if (impact > 100) return "Growing";
+    return "Emerging";
+  }
   function calculateMonthlyActivity(user) {
     const { contributionsCollection, pullRequests, issues } = user;
     const calendar = contributionsCollection.contributionCalendar;
@@ -1121,64 +1195,152 @@ function calculateCommunityImpact(user) {
               </div>
             </TabsContent>
 
-            <TabsContent value="repositories" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-4">
-                  <h3 className="text-lg font-semibold">Top Repositories</h3>
-                  {profileData.topRepos.map((repo, index) => (
-                    <RepositoryCard
-                      key={repo.name}
-                      repo={repo}
-                      rank={index + 1}
-                    />
-                  ))}
-                </div>
+<TabsContent value="repositories" className="space-y-6">
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="lg:col-span-2 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">
+          {showAllRepos ? 'All Repositories' : 'Top Repositories'}
+        </h3>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAllRepos(!showAllRepos)}
+          >
+            {showAllRepos ? 'Show Top Only' : 'Show All'}
+          </Button>
+        </div>
+      </div>
 
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Repository Stats</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex justify-between">
-                        <span className="text-sm">Public Repos</span>
-                        <span className="font-medium">
-                          {profileData.publicRepos}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm">Private Repos</span>
-                        <span className="font-medium">12</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm">Forked Repos</span>
-                        <span className="font-medium">23</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm">Contributed To</span>
-                        <span className="font-medium">156</span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    {/* Repository Grid */}
+                    <div className="space-y-3">
+                      {(showAllRepos
+                        ? profileData.allRepos
+                        : profileData.topRepos
+                      )
+                        .slice(0, showAllRepos ? displayedRepos : 6)
+                        .map((repo, index) => (
+                          <EnhancedRepositoryCard
+                            key={repo.name}
+                            repo={repo}
+                            rank={index + 1}
+                            onClick={() => setSelectedRepo(repo)}
+                          />
+                        ))}
+                    </div>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Repository Languages</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {profileData.languages.map((lang) => (
-                        <div key={lang.name} className="space-y-1">
-                          <div className="flex justify-between text-sm">
-                            <span>{lang.name}</span>
-                            <span>{lang.percentage}%</span>
-                          </div>
-                          <Progress value={lang.percentage} className="h-2" />
+                    {/* Load More Button */}
+                    {showAllRepos &&
+                      displayedRepos < profileData.allRepos.length && (
+                        <div className="flex justify-center pt-4">
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              setDisplayedRepos((prev) => prev + 6)
+                            }
+                          >
+                            Load More Repositories (
+                            {profileData.allRepos.length - displayedRepos}{" "}
+                            remaining)
+                          </Button>
                         </div>
-                      ))}
-                    </CardContent>
-                  </Card>
+                      )}
+
+                    {/* Repository count info */}
+                    <div className="text-center text-sm text-slate-600 dark:text-slate-400 pt-2">
+                      Showing{" "}
+                      {Math.min(
+                        displayedRepos,
+                        showAllRepos ? profileData.allRepos.length : 6
+                      )}{" "}
+                      of{" "}
+                      {showAllRepos
+                        ? profileData.allRepos.length
+                        : profileData.topRepos.length}{" "}
+                      repositories
+                    </div>
+                  </div>
+
+                  {/* Sidebar with stats - keep existing code */}
+                  <div className="space-y-6">
+                    {/* Repository Stats Card - keep existing */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Repository Stats</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex justify-between">
+                          <span className="text-sm">Public Repos</span>
+                          <span className="font-medium">
+                            {profileData.repositoryStats.publicRepos}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Private Repos</span>
+                          <span className="font-medium">
+                            {profileData.repositoryStats.privateRepos}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Forked Repos</span>
+                          <span className="font-medium">
+                            {profileData.repositoryStats.forkedRepos}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Original Repos</span>
+                          <span className="font-medium">
+                            {profileData.repositoryStats.originalRepos}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Contributed To</span>
+                          <span className="font-medium">
+                            {profileData.repositoryStats.contributedTo}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Total Stars</span>
+                          <span className="font-medium">
+                            {profileData.repositoryStats.totalStars.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Avg Stars/Repo</span>
+                          <span className="font-medium">
+                            {profileData.repositoryStats.averageStarsPerRepo}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Repository Languages Card - keep existing */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Repository Languages</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {profileData.languages.map((lang) => (
+                          <div key={lang.name} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span>{lang.name}</span>
+                              <span>{lang.percentage}%</span>
+                            </div>
+                            <Progress value={lang.percentage} className="h-2" />
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
-              </div>
+
+                {/* Repository Detail Modal */}
+                <RepositoryDetailModal
+                  repo={selectedRepo}
+                  isOpen={!!selectedRepo}
+                  onClose={() => setSelectedRepo(null)}
+                />
             </TabsContent>
 
             <TabsContent value="insights" className="space-y-6">
