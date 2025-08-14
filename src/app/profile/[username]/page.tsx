@@ -253,6 +253,7 @@ totalCommitContributions
               forks: repo.forkCount,
               isPrivate: repo.isPrivate,
               updatedAt: repo.updatedAt,
+              url: repo.url,
             })),
             allRepos: user.repositories.nodes.map((repo) => ({
               name: repo.name,

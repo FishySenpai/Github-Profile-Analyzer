@@ -45,7 +45,7 @@ export function RepositoryDetailModal({
   onClose,
 }: RepositoryDetailModalProps) {
   if (!repo) return null;
-
+  console.log("Repository URL:", repo.url);
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       weekday: "long",
@@ -79,7 +79,7 @@ export function RepositoryDetailModal({
                 <Unlock className="h-5 w-5 text-green-500" />
               )}
             </DialogTitle>
-            <Button variant="outline" asChild>
+            <Button asChild variant="outline">
               <a href={repo.url} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View on GitHub
