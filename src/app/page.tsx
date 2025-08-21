@@ -21,34 +21,45 @@ import {
   TrendingUp,
   Zap,
   Clock,
+  Moon,
+  Sun,
 } from "lucide-react";
 
 export default function HomePage() {
-    const router = useRouter();
-    const [username, setUsername] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const [username, setUsername] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [darkMode, setDarkMode] = useState<boolean>(false);
 
-    // Add the fetchProfile function
-    const fetchProfile = async () => {
-      if (!username || username.trim() === "") {
-        setError("Please enter a GitHub username");
-        return;
-      }
+  // Apply dark class to <html> on toggle
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [darkMode]);
+  // Add the fetchProfile function
+  const fetchProfile = async () => {
+    if (!username || username.trim() === "") {
+      setError("Please enter a GitHub username");
+      return;
+    }
 
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      try {
-        // Navigate to the profile page with the username
-        router.push(`/profile/${username}`);
-      } catch (error) {
-        console.error("Error:", error);
-        setError("An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
+    try {
+      // Navigate to the profile page with the username
+      router.push(`/profile/${username}`);
+    } catch (error) {
+      console.error("Error:", error);
+      setError("An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
@@ -76,6 +87,19 @@ export default function HomePage() {
             <Button variant="outline" size="sm">
               <Github className="h-4 w-4 mr-2" />
               Sign in with GitHub
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Toggle dark mode"
+              onClick={() => setDarkMode((d) => !d)}
+              className="ml-2"
+            >
+              {darkMode ? (
+                <Sun className="h-5 w-5 text-yellow-400" />
+              ) : (
+                <Moon className="h-5 w-5 text-slate-700" />
+              )}
             </Button>
           </nav>
         </div>
@@ -116,7 +140,6 @@ export default function HomePage() {
               <Button
                 size="lg"
                 className="h-12 px-6"
-
                 onClick={fetchProfile}
                 disabled={loading}
               >
