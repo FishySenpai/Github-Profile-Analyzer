@@ -84,6 +84,12 @@ export default function HomePage() {
             >
               How it works
             </a>
+            <a
+              href="/search"
+              className="text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+            >
+              Discover Developers
+            </a>
             <Button variant="outline" size="sm">
               <Github className="h-4 w-4 mr-2" />
               Sign in with GitHub
