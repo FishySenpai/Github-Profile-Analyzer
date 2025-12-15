@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { fetchGitHubGraphQL } from "../../lib/github";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,12 @@ export default function HomePage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const searchRef = useRef(null);
 
   // Apply dark class to <html> on toggle
   useEffect(() => {
@@ -40,26 +46,130 @@ export default function HomePage() {
       document.documentElement.classList.remove("dark");
     }
   }, [darkMode]);
-  // Add the fetchProfile function
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Fetch username suggestions
+  const fetchSuggestions = async (query: string) => {
+    if (query.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setSearchLoading(true);
+
+    try {
+      const response = await fetch(
+        `https://api.github.com/search/users?q=${encodeURIComponent(
+          query
+        )}&per_page=8`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_GITHUB_TOKEN}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.items) {
+        setSuggestions(data.items);
+        setShowSuggestions(true);
+      }
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (username) {
+        fetchSuggestions(username);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 300); // Wait 300ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [username]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === "Enter") {
+        fetchProfile();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (selectedIndex >= 0 && suggestions[selectedIndex]) {
+          selectSuggestion(suggestions[selectedIndex]);
+        } else {
+          fetchProfile();
+        }
+        break;
+      case "Escape":
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  };
+
+  const selectSuggestion = (user) => {
+    setUsername(user.login);
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
+    // Navigate immediately
+    router.push(`/profile/${user.login}`);
+  };
+
   const fetchProfile = async () => {
-    if (!username || username.trim() === "") {
+    if (!username.trim()) {
       setError("Please enter a GitHub username");
       return;
     }
 
     setLoading(true);
     setError(null);
+    setShowSuggestions(false);
 
     try {
-      // Navigate to the profile page with the username
       router.push(`/profile/${username}`);
-    } catch (error) {
-      console.error("Error:", error);
-      setError("An error occurred");
+    } catch (err) {
+      setError("Failed to fetch profile. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
@@ -130,33 +240,117 @@ export default function HomePage() {
             GitHub profile. Perfect for recruiters, developers, and teams.
           </p>
 
-          {/* Search Form */}
-          <div className="max-w-md mx-auto mb-8">
+          {/* Search Form with Autocomplete */}
+          <div className="max-w-md mx-auto mb-8" ref={searchRef}>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Github className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Github className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
                 <Input
                   placeholder="Enter GitHub username..."
                   className="pl-10 h-12 text-base"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && fetchProfile()}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => {
+                    if (suggestions.length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
+                  autoComplete="off"
                 />
+
+                {/* Loading indicator in input */}
+                {searchLoading && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="h-4 w-4 border-2 border-t-transparent border-slate-400 rounded-full animate-spin inline-block" />
+                  </div>
+                )}
+
+                {/* Autocomplete Suggestions Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                    {suggestions.map((user, index) => (
+                      <div
+                        key={user.id}
+                        className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
+                          index === selectedIndex
+                            ? "bg-blue-50 dark:bg-blue-950"
+                            : "hover:bg-slate-50 dark:hover:bg-slate-700"
+                        } ${
+                          index === suggestions.length - 1
+                            ? ""
+                            : "border-b border-slate-100 dark:border-slate-700"
+                        }`}
+                        onClick={() => selectSuggestion(user)}
+                        onMouseEnter={() => setSelectedIndex(index)}
+                      >
+                        <img
+                          src={user.avatar_url}
+                          alt={user.login}
+                          className="w-10 h-10 rounded-full"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">
+                            {user.login}
+                          </div>
+                          {user.type && (
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              {user.type}
+                            </div>
+                          )}
+                        </div>
+                        <Search className="h-4 w-4 text-slate-400" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* No results message */}
+                {showSuggestions &&
+                  suggestions.length === 0 &&
+                  username.length >= 2 &&
+                  !searchLoading && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-4 z-50">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+                        No users found matching "{username}"
+                      </p>
+                    </div>
+                  )}
               </div>
+
               <Button
                 size="lg"
                 className="h-12 px-6"
                 onClick={fetchProfile}
                 disabled={loading}
               >
-                <Search className="h-4 w-4 mr-2" />
+                {loading ? (
+                  <span className="mr-2 h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin inline-block" />
+                ) : (
+                  <Search className="h-4 w-4 mr-2" />
+                )}
                 Analyze
               </Button>
             </div>
+
+            {/* Keyboard shortcuts hint */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">
+                Use ↑↓ to navigate, Enter to select, Esc to close
+              </div>
+            )}
+
             <p className="text-sm text-slate-500 mt-2">
               Try: octocat, torvalds, or any GitHub username
             </p>
           </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="max-w-md mx-auto mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+            </div>
+          )}
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto">
@@ -349,7 +543,11 @@ export default function HomePage() {
             coding journey
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="h-12 px-8">
+            <Button
+              size="lg"
+              className="h-12 px-8"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            >
               <Search className="h-4 w-4 mr-2" />
               Start Analysis
             </Button>
