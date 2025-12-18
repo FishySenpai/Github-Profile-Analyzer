@@ -33,7 +33,7 @@ import { ActivityChart } from "@/components/activity-chart";
 import { RepositoryCard } from "@/components/repository-card";
 import { CommitChart } from "@/components/commit-chart";
 import { toast } from "sonner";
-
+import { ShareProfile } from "@/components/share-profile";
 // Mock data for demonstration
 const profileData = {
   username: "octocat",
@@ -1026,10 +1026,25 @@ totalCommitContributions
             <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
             <h1 className="text-xl font-semibold">Profile Analysis</h1>
           </div>
-          <Button variant="outline" size="sm">
-            <Github className="h-4 w-4 mr-2" />
-            View on GitHub
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
+            <ShareProfile
+              username={profileData.username}
+              name={profileData.name}
+              bio={profileData.bio}
+            />
+            
+            <Button variant="outline" size="sm" asChild>
+              <a
+                href={`https://github.com/${profileData.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Github className="h-4 w-4 mr-2" />
+                View on GitHub
+              </a>
+            </Button>
+          </div>
         </div>
       </header>
       {profileData && (
