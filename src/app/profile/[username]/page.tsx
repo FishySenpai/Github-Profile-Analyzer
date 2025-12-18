@@ -32,6 +32,7 @@ import { LanguageChart } from "@/components/language-chart";
 import { ActivityChart } from "@/components/activity-chart";
 import { RepositoryCard } from "@/components/repository-card";
 import { CommitChart } from "@/components/commit-chart";
+import { toast } from "sonner";
 
 // Mock data for demonstration
 const profileData = {
@@ -278,19 +279,31 @@ totalCommitContributions
             productivityScore,
           };
 
-          setProfileData(mappedProfileData);
-          console.log("Profile Data:", mappedProfileData);
+        setProfileData(mappedProfileData);
         }
-      } catch (error) {
-        console.error("Error fetching profile data:", error);
-        setError("Failed to fetch profile data");
+      } catch (error: any) {
+        console.error("Error fetching profile:", error);
+        
+        if (error.message.includes("rate limit")) {
+          toast.error("GitHub API rate limit exceeded. Please try again later.");
+        } else if (error.message.includes("404")) {
+          toast.error(`User "${username}" not found`);
+        } else {
+          toast.error("Failed to load profile. Please try again.");
+        }
+        
+        router.push("/");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProfile();
-  }, [username]);
+    if (username) {
+      fetchProfile();
+    }
+  }, [username, router]);
+
+
   function calculateProductivityScore(user) {
     const { contributionsCollection, repositories } = user;
     const calendar = contributionsCollection.contributionCalendar;
@@ -985,8 +998,22 @@ totalCommitContributions
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5); // Return top 5 languages
   }
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>{error}</p>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">
+            Loading profile...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profileData) {
+    return null;
+  }
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {/* Header */}

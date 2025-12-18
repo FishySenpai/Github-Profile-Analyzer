@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { fetchGitHubGraphQL } from "../../lib/github";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import {
   Card,
   CardDescription,
@@ -81,6 +82,14 @@ export default function HomePage() {
         }
       );
 
+      if (!response.ok) {
+        if (response.status === 403) {
+          toast.error("Rate limit exceeded. Please try again later.");
+          return;
+        }
+        throw new Error("Failed to fetch suggestions");
+      }
+
       const data = await response.json();
 
       if (data.items) {
@@ -89,6 +98,7 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error("Error fetching suggestions:", error);
+      toast.error("Failed to load suggestions");
     } finally {
       setSearchLoading(false);
     }
@@ -147,29 +157,33 @@ export default function HomePage() {
     setUsername(user.login);
     setShowSuggestions(false);
     setSelectedIndex(-1);
+    toast.success(`Analyzing ${user.login}'s profile...`);
     // Navigate immediately
     router.push(`/profile/${user.login}`);
   };
 
   const fetchProfile = async () => {
     if (!username.trim()) {
-      setError("Please enter a GitHub username");
+      toast.error("Please enter a GitHub username");
       return;
     }
 
     setLoading(true);
-    setError(null);
     setShowSuggestions(false);
 
     try {
+      toast.loading(`Analyzing ${username}'s profile...`, {
+        id: "analyzing",
+      });
       router.push(`/profile/${username}`);
     } catch (err) {
-      setError("Failed to fetch profile. Please try again.");
+      toast.error("Failed to fetch profile. Please try again.", {
+        id: "analyzing",
+      });
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
@@ -345,12 +359,6 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Error Display */}
-          {error && (
-            <div className="max-w-md mx-auto mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
-            </div>
-          )}
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto">
