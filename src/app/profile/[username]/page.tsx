@@ -34,6 +34,7 @@ import { RepositoryCard } from "@/components/repository-card";
 import { CommitChart } from "@/components/commit-chart";
 import { toast } from "sonner";
 import { ShareProfile } from "@/components/share-profile";
+import { ExportPDFButton } from "@/components/export-pdf-button";
 // Mock data for demonstration
 const profileData = {
   username: "octocat",
@@ -303,6 +304,50 @@ totalCommitContributions
     }
   }, [username, router]);
 
+    useEffect(() => {
+      if (profileData && typeof window !== "undefined") {
+        // Update page title
+        document.title = `${profileData.name} (@${profileData.username}) - GitAnalyzer`;
+
+        // Add Open Graph meta tags for better social sharing
+        const updateMetaTag = (property: string, content: string) => {
+          let meta = document.querySelector(`meta[property="${property}"]`);
+          if (!meta) {
+            meta = document.createElement("meta");
+            meta.setAttribute("property", property);
+            document.head.appendChild(meta);
+          }
+          meta.setAttribute("content", content);
+        };
+
+        updateMetaTag(
+          "og:title",
+          `${profileData.name} - GitHub Profile Analysis`
+        );
+        updateMetaTag(
+          "og:description",
+          profileData.bio ||
+            `View ${profileData.name}'s GitHub statistics and insights`
+        );
+        updateMetaTag("og:image", profileData.avatar);
+        updateMetaTag(
+          "og:url",
+          `${window.location.origin}/profile/${profileData.username}`
+        );
+        updateMetaTag("og:type", "profile");
+
+        updateMetaTag("twitter:card", "summary_large_image");
+        updateMetaTag(
+          "twitter:title",
+          `${profileData.name} (@${profileData.username})`
+        );
+        updateMetaTag(
+          "twitter:description",
+          profileData.bio || `GitHub Profile Analysis`
+        );
+        updateMetaTag("twitter:image", profileData.avatar);
+      }
+    }, [profileData]);
 
   function calculateProductivityScore(user) {
     const { contributionsCollection, repositories } = user;
@@ -1028,12 +1073,16 @@ totalCommitContributions
           </div>
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            <ExportPDFButton
+              profileName={profileData.name}
+              username={profileData.username}
+            />
             <ShareProfile
               username={profileData.username}
               name={profileData.name}
               bio={profileData.bio}
             />
-            
+
             <Button variant="outline" size="sm" asChild>
               <a
                 href={`https://github.com/${profileData.username}`}
@@ -1048,7 +1097,7 @@ totalCommitContributions
         </div>
       </header>
       {profileData && (
-        <div className="container mx-auto px-4 py-8">
+        <div id="profile-content" className="container mx-auto px-4 py-8">
           {/* Profile Header */}
           <Card className="mb-8">
             <CardContent className="p-6">
@@ -1230,7 +1279,11 @@ totalCommitContributions
               <TabsTrigger value="insights">Insights</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-6">
+            <TabsContent
+              value="overview"
+              id="overview-section"
+              className="space-y-6"
+            >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Contribution Chart */}
                 <Card className="lg:col-span-2">
@@ -1273,7 +1326,11 @@ totalCommitContributions
               </div>
             </TabsContent>
 
-            <TabsContent value="activity" className="space-y-6">
+            <TabsContent
+              value="activity"
+              id="activity-section"
+              className="space-y-6"
+            >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="lg:col-span-2">
                   <CardHeader>
@@ -1413,7 +1470,11 @@ totalCommitContributions
               </div>
             </TabsContent>
 
-            <TabsContent value="repositories" className="space-y-6">
+            <TabsContent
+              value="repositories"
+              id="repositories-section"
+              className="space-y-6"
+            >
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">
                   <div className="flex items-center justify-between">
@@ -1559,7 +1620,11 @@ totalCommitContributions
               />
             </TabsContent>
 
-            <TabsContent value="insights" className="space-y-6">
+            <TabsContent
+              value="insights"
+              id="insights-section"
+              className="space-y-6"
+            >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>

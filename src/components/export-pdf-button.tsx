@@ -1,0 +1,136 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { Download, FileText, Image, Loader2 } from "lucide-react";
+import { exportProfileToPDF, exportSectionToPDF } from "@/lib/pdf-export";
+
+interface ExportPDFButtonProps {
+  profileName: string;
+  username: string;
+}
+
+export function ExportPDFButton({
+  profileName,
+  username,
+}: ExportPDFButtonProps) {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleFullExport = async () => {
+    setIsExporting(true);
+    const loadingToast = toast.loading("Generating PDF...");
+
+    try {
+      await exportProfileToPDF("profile-content", username);
+      toast.success("PDF exported successfully!", { id: loadingToast });
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export PDF. Please try again.", {
+        id: loadingToast,
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSectionExport = async (
+    sectionId: string,
+    sectionName: string
+  ) => {
+    setIsExporting(true);
+    const loadingToast = toast.loading(`Exporting ${sectionName}...`);
+
+    try {
+      await exportSectionToPDF(
+        sectionId,
+        `${username}-${sectionName.toLowerCase().replace(/\s+/g, "-")}.pdf`
+      );
+      toast.success(`${sectionName} exported successfully!`, {
+        id: loadingToast,
+      });
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error(`Failed to export ${sectionName}`, { id: loadingToast });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" disabled={isExporting}>
+          {isExporting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem onClick={handleFullExport} disabled={isExporting}>
+          <FileText className="h-4 w-4 mr-2" />
+          Full Profile (PDF)
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-slate-500">
+          Export Sections
+        </DropdownMenuLabel>
+
+        <DropdownMenuItem
+          onClick={() => handleSectionExport("overview-section", "Overview")}
+          disabled={isExporting}
+        >
+          <Image className="h-4 w-4 mr-2" />
+          Overview
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => handleSectionExport("activity-section", "Activity")}
+          disabled={isExporting}
+        >
+          <Image className="h-4 w-4 mr-2" />
+          Activity
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() =>
+            handleSectionExport("repositories-section", "Repositories")
+          }
+          disabled={isExporting}
+        >
+          <Image className="h-4 w-4 mr-2" />
+          Repositories
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => handleSectionExport("insights-section", "Insights")}
+          disabled={isExporting}
+        >
+          <Image className="h-4 w-4 mr-2" />
+          Insights
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+

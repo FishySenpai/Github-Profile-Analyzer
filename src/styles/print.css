@@ -1,0 +1,64 @@
+@media print {
+  /* Hide navigation and interactive elements */
+  header,
+  button,
+  a[href],
+  input,
+  select,
+  textarea,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure content fits nicely */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Override dark mode colors for print */
+  * {
+    background-color: white !important;
+    color: black !important;
+    border-color: #e5e7eb !important;
+  }
+
+  /* Avoid page breaks inside cards */
+  .card,
+  .chart-container,
+  article,
+  section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Optimize text for print */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Reset positioning */
+  [class*="sticky"],
+  [class*="fixed"] {
+    position: relative !important;
+  }
+}
+
+/* PDF Export specific styles */
+.pdf-export-mode {
+  background: white !important;
+}
+
+.pdf-export-mode * {
+  background-color: transparent !important;
+  color: black !important;
+}
+
+.pdf-export-mode button,
+.pdf-export-mode a[href],
+.pdf-export-mode input,
+.pdf-export-mode select {
+  display: none !important;
+}
