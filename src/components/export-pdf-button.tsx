@@ -91,44 +91,6 @@ export function ExportPDFButton({
           Full Profile (PDF)
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs text-slate-500">
-          Export Sections
-        </DropdownMenuLabel>
-
-        <DropdownMenuItem
-          onClick={() => handleSectionExport("overview-section", "Overview")}
-          disabled={isExporting}
-        >
-          <Image className="h-4 w-4 mr-2" />
-          Overview
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          onClick={() => handleSectionExport("activity-section", "Activity")}
-          disabled={isExporting}
-        >
-          <Image className="h-4 w-4 mr-2" />
-          Activity
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          onClick={() =>
-            handleSectionExport("repositories-section", "Repositories")
-          }
-          disabled={isExporting}
-        >
-          <Image className="h-4 w-4 mr-2" />
-          Repositories
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          onClick={() => handleSectionExport("insights-section", "Insights")}
-          disabled={isExporting}
-        >
-          <Image className="h-4 w-4 mr-2" />
-          Insights
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

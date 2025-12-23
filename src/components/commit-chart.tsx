@@ -14,7 +14,7 @@ export function CommitChart({commitData}) {
           color: "hsl(var(--chart-1))",
         },
       }}
-      className="h-[300px] w-[650px]"
+      className="h-[300px] w-full"
     >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={commitData}>

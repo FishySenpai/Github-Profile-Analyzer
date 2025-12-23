@@ -1319,7 +1319,7 @@ totalCommitContributions
                       Commits over the past 12 months
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="h-[300px] w-[700px]">
+                  <CardContent className="h-[300px] ">
                     <CommitChart commitData={commitData} />
                   </CardContent>
                 </Card>
