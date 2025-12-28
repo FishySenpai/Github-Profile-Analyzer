@@ -35,6 +35,7 @@ import { CommitChart } from "@/components/commit-chart";
 import { toast } from "sonner";
 import { ShareProfile } from "@/components/share-profile";
 import { ExportPDFButton } from "@/components/export-pdf-button";
+import { SaveProfileButton } from "@/components/profile/save-profile-button";
 // Mock data for demonstration
 const profileData = {
   username: "octocat",
@@ -1073,6 +1074,10 @@ totalCommitContributions
           </div>
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            <SaveProfileButton
+              profileData={profileData}
+              username={profileData.username}
+            />
             <ExportPDFButton
               profileName={profileData.name}
               username={profileData.username}
