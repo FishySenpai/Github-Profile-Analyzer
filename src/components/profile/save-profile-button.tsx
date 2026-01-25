@@ -11,7 +11,7 @@ export function SaveProfileButton({
   profileData,
   username,
 }: {
-  profileData: any;
+  profileData: Record<string, unknown>;
   username: string;
 }) {
   const { user } = useAuth();

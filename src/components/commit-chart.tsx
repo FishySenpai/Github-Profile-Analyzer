@@ -1,10 +1,25 @@
-"use client"
+"use client";
 
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 
+export interface CommitDataPoint {
+  month: string;
+  commits: number;
+}
 
-export function CommitChart({commitData}) {
+export function CommitChart({ commitData }: { commitData: CommitDataPoint[] }) {
   console.log("CommitChart data:", commitData);
   return (
     <ChartContainer

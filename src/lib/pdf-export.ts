@@ -1,6 +1,5 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import { Color } from "color-core";
 
 export interface ExportOptions {
   filename?: string;
@@ -10,16 +9,16 @@ export interface ExportOptions {
 // Create an isolated clone without external stylesheet references
 const createIsolatedClone = (element: HTMLElement): HTMLElement => {
   const clone = element.cloneNode(true) as HTMLElement;
-  
+
   // Copy computed styles as inline styles to eliminate stylesheet dependency
   const copyComputedStyles = (original: Element, cloned: Element): void => {
     const children = Array.from(original.children);
     const clonedChildren = Array.from(cloned.children);
-    
+
     // Copy styles for current element
     const computed = window.getComputedStyle(original as HTMLElement);
     const clonedEl = cloned as HTMLElement;
-    
+
     for (let i = 0; i < computed.length; i++) {
       const prop = computed[i];
       const value = computed.getPropertyValue(prop);
@@ -27,7 +26,7 @@ const createIsolatedClone = (element: HTMLElement): HTMLElement => {
         clonedEl.style.setProperty(prop, value);
       }
     }
-    
+
     // Recursively copy for children
     children.forEach((child, index) => {
       if (clonedChildren[index]) {
@@ -35,7 +34,7 @@ const createIsolatedClone = (element: HTMLElement): HTMLElement => {
       }
     });
   };
-  
+
   copyComputedStyles(element, clone);
   return clone;
 };
@@ -59,12 +58,12 @@ const stripStylesheetColors = (): void => {
                 .replace(/oklab\([^)]*\)/g, "#000000")
                 .replace(/lch\([^)]*\)/g, "#000000")
                 .replace(/lab\([^)]*\)/g, "#000000");
-              
+
               if (cleanedStyle !== style) {
                 rule.style.cssText = cleanedStyle;
               }
             }
-          } catch (e) {
+          } catch {
             // Skip rules we can't access
           }
         }
@@ -76,57 +75,57 @@ const stripStylesheetColors = (): void => {
 };
 
 // Convert all colors to RGB format that html2canvas can parse
-const convertColorsToRgb = (element: HTMLElement): void => {
-  const allElements = [element, ...Array.from(element.querySelectorAll("*"))];
+// const convertColorsToRgb = (element: HTMLElement): void => {
+//   const allElements = [element, ...Array.from(element.querySelectorAll("*"))];
 
-  allElements.forEach((el) => {
-    const htmlEl = el as HTMLElement;
-    const computed = window.getComputedStyle(htmlEl);
+//   allElements.forEach((el) => {
+//     const htmlEl = el as HTMLElement;
+//     const computed = window.getComputedStyle(htmlEl);
 
-    const colorProps = [
-      "color",
-      "backgroundColor",
-      "borderColor",
-      "borderTopColor",
-      "borderRightColor",
-      "borderBottomColor",
-      "borderLeftColor",
-      "outlineColor",
-      "textDecorationColor",
-      "fill",
-      "stroke",
-    ];
+//     const colorProps = [
+//       "color",
+//       "backgroundColor",
+//       "borderColor",
+//       "borderTopColor",
+//       "borderRightColor",
+//       "borderBottomColor",
+//       "borderLeftColor",
+//       "outlineColor",
+//       "textDecorationColor",
+//       "fill",
+//       "stroke",
+//     ];
 
-    colorProps.forEach((prop) => {
-      const value = computed.getPropertyValue(prop);
-      if (value && value !== "none" && value !== "transparent") {
-        try {
-          // Check if it's an oklch/oklab color
-          if (
-            value.includes("oklch") ||
-            value.includes("oklab") ||
-            value.includes("lch") ||
-            value.includes("lab")
-          ) {
-            // Parse and convert using color-core
-            const color = new Color(value);
-            const rgb = color.toRgb();
-            const rgbString = `rgb(${Math.round(rgb.r)}, ${Math.round(
-              rgb.g
-            )}, ${Math.round(rgb.b)})`;
-            htmlEl.style.setProperty(prop, rgbString, "important");
-          } else {
-            // For other colors, just ensure they're set as inline styles
-            htmlEl.style.setProperty(prop, value, "important");
-          }
-        } catch (error) {
-          // If color parsing fails, use the computed value as-is
-          htmlEl.style.setProperty(prop, value, "important");
-        }
-      }
-    });
-  });
-};
+//     colorProps.forEach((prop) => {
+//       const value = computed.getPropertyValue(prop);
+//       if (value && value !== "none" && value !== "transparent") {
+//         try {
+//           // Check if it's an oklch/oklab color
+//           if (
+//             value.includes("oklch") ||
+//             value.includes("oklab") ||
+//             value.includes("lch") ||
+//             value.includes("lab")
+//           ) {
+//             // Parse and convert using color-core
+//             const color = new Color(value);
+//             const rgb = color.toRgb();
+//             const rgbString = `rgb(${Math.round(rgb.r)}, ${Math.round(
+//               rgb.g
+//             )}, ${Math.round(rgb.b)})`;
+//             htmlEl.style.setProperty(prop, rgbString, "important");
+//           } else {
+//             // For other colors, just ensure they're set as inline styles
+//             htmlEl.style.setProperty(prop, value, "important");
+//           }
+//         } catch (error) {
+//           // If color parsing fails, use the computed value as-is
+//           htmlEl.style.setProperty(prop, value, "important");
+//         }
+//       }
+//     });
+//   });
+// };
 
 // Helper function to strip problematic style attributes before html2canvas processes
 const stripProblematicStyles = (element: HTMLElement): void => {
@@ -140,7 +139,7 @@ const stripProblematicStyles = (element: HTMLElement): void => {
       .replace(/oklab\([^)]*\)/g, "")
       .replace(/lch\([^)]*\)/g, "")
       .replace(/lab\([^)]*\)/g, "");
-    
+
     if (cleanedStyle.trim()) {
       htmlEl.setAttribute("style", cleanedStyle);
     } else {
@@ -152,7 +151,7 @@ const stripProblematicStyles = (element: HTMLElement): void => {
 export const exportProfileToPDF = async (
   elementId: string,
   profileName: string,
-  options: ExportOptions = {}
+  options: ExportOptions = {},
 ): Promise<void> => {
   const {
     filename = `${profileName}-github-profile.pdf`,
@@ -189,14 +188,14 @@ export const exportProfileToPDF = async (
       logging: false,
       backgroundColor: "#ffffff",
       allowTaint: true,
-      ignoreElements: (element) => {
+      ignoreElements: (element: HTMLElement) => {
         const tagName = element.tagName.toLowerCase();
         return (
           ["button", "input", "select", "textarea"].includes(tagName) ||
           element.getAttribute("role") === "button"
         );
       },
-    });
+    } as Parameters<typeof html2canvas>[1]);
 
     // Remove clone
     document.body.removeChild(clone);
@@ -234,7 +233,7 @@ export const exportProfileToPDF = async (
 
 export const exportSectionToPDF = async (
   sectionId: string,
-  filename: string
+  filename: string,
 ): Promise<void> => {
   const element = document.getElementById(sectionId);
   if (!element) {
@@ -264,12 +263,11 @@ export const exportSectionToPDF = async (
       logging: false,
       backgroundColor: "#ffffff",
       allowTaint: true,
-      ignoreElements: (element) => {
+      ignoreElements: (element: HTMLElement) => {
         const tagName = element.tagName.toLowerCase();
         return ["button", "input", "select", "textarea"].includes(tagName);
       },
-    });
-
+    } as Parameters<typeof html2canvas>[1]);
     document.body.removeChild(clone);
 
     const imgWidth = 210;

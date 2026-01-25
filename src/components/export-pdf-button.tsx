@@ -11,8 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Download, FileText, Image, Loader2 } from "lucide-react";
-import { exportProfileToPDF, exportSectionToPDF } from "@/lib/pdf-export";
+import { Download, FileText, Loader2 } from "lucide-react";
+import { exportProfileToPDF} from "@/lib/pdf-export";
 
 interface ExportPDFButtonProps {
   profileName: string;
@@ -20,7 +20,6 @@ interface ExportPDFButtonProps {
 }
 
 export function ExportPDFButton({
-  profileName,
   username,
 }: ExportPDFButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
@@ -42,28 +41,28 @@ export function ExportPDFButton({
     }
   };
 
-  const handleSectionExport = async (
-    sectionId: string,
-    sectionName: string
-  ) => {
-    setIsExporting(true);
-    const loadingToast = toast.loading(`Exporting ${sectionName}...`);
+  // const handleSectionExport = async (
+  //   sectionId: string,
+  //   sectionName: string
+  // ) => {
+  //   setIsExporting(true);
+  //   const loadingToast = toast.loading(`Exporting ${sectionName}...`);
 
-    try {
-      await exportSectionToPDF(
-        sectionId,
-        `${username}-${sectionName.toLowerCase().replace(/\s+/g, "-")}.pdf`
-      );
-      toast.success(`${sectionName} exported successfully!`, {
-        id: loadingToast,
-      });
-    } catch (error) {
-      console.error("Export error:", error);
-      toast.error(`Failed to export ${sectionName}`, { id: loadingToast });
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  //   try {
+  //     await exportSectionToPDF(
+  //       sectionId,
+  //       `${username}-${sectionName.toLowerCase().replace(/\s+/g, "-")}.pdf`
+  //     );
+  //     toast.success(`${sectionName} exported successfully!`, {
+  //       id: loadingToast,
+  //     });
+  //   } catch (error) {
+  //     console.error("Export error:", error);
+  //     toast.error(`Failed to export ${sectionName}`, { id: loadingToast });
+  //   } finally {
+  //     setIsExporting(false);
+  //   }
+  // };
 
   return (
     <DropdownMenu>

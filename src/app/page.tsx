@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { fetchGitHubGraphQL } from "../../lib/github";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -26,19 +26,24 @@ import {
   Sun,
 } from "lucide-react";
 
+interface SuggestionUser {
+  id: number;
+  login: string;
+  avatar_url: string;
+  type?: string;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [username, setUsername] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState<SuggestionUser[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  const searchRef = useRef(null);
-
+  const searchRef = useRef<HTMLDivElement>(null);
   // Apply dark class to <html> on toggle
   useEffect(() => {
     if (darkMode) {
@@ -50,8 +55,11 @@ export default function HomePage() {
 
   // Click outside to close suggestions
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
         setShowSuggestions(false);
       }
     };
@@ -73,13 +81,13 @@ export default function HomePage() {
     try {
       const response = await fetch(
         `https://api.github.com/search/users?q=${encodeURIComponent(
-          query
+          query,
         )}&per_page=8`,
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_GITHUB_TOKEN}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -93,7 +101,7 @@ export default function HomePage() {
       const data = await response.json();
 
       if (data.items) {
-        setSuggestions(data.items);
+        setSuggestions(data.items as SuggestionUser[]);
         setShowSuggestions(true);
       }
     } catch (error) {
@@ -131,7 +139,7 @@ export default function HomePage() {
       case "ArrowDown":
         e.preventDefault();
         setSelectedIndex((prev) =>
-          prev < suggestions.length - 1 ? prev + 1 : prev
+          prev < suggestions.length - 1 ? prev + 1 : prev,
         );
         break;
       case "ArrowUp":
@@ -153,12 +161,11 @@ export default function HomePage() {
     }
   };
 
-  const selectSuggestion = (user) => {
+  const selectSuggestion = (user: SuggestionUser) => {
     setUsername(user.login);
     setShowSuggestions(false);
     setSelectedIndex(-1);
     toast.success(`Analyzing ${user.login}'s profile...`);
-    // Navigate immediately
     router.push(`/profile/${user.login}`);
   };
 
@@ -176,7 +183,7 @@ export default function HomePage() {
         id: "analyzing",
       });
       router.push(`/profile/${username}`);
-    } catch (err) {
+    } catch {
       toast.error("Failed to fetch profile. Please try again.", {
         id: "analyzing",
       });
@@ -298,9 +305,11 @@ export default function HomePage() {
                         onClick={() => selectSuggestion(user)}
                         onMouseEnter={() => setSelectedIndex(index)}
                       >
-                        <img
+                        <Image
                           src={user.avatar_url}
                           alt={user.login}
+                          width={40}
+                          height={40}
                           className="w-10 h-10 rounded-full"
                         />
                         <div className="flex-1 min-w-0">
@@ -326,7 +335,7 @@ export default function HomePage() {
                   !searchLoading && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-4 z-50">
                       <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
-                        No users found matching "{username}"
+                        No users found matching quot;{username}&quot;
                       </p>
                     </div>
                   )}
@@ -358,7 +367,6 @@ export default function HomePage() {
               Try: octocat, torvalds, or any GitHub username
             </p>
           </div>
-
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto">

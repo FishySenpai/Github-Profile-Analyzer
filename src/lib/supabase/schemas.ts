@@ -11,7 +11,7 @@ export interface SavedProfile {
   id: string;
   user_id: string;
   github_username: string;
-  profile_data: any;
+  profile_data: Record<string, unknown>;
   notes?: string;
   saved_at: string;
   is_favorite: boolean;
@@ -22,7 +22,7 @@ export interface ProfileComparison {
   user_id: string;
   profile1_username: string;
   profile2_username: string;
-  comparison_data: any;
+  comparison_data: Record<string, unknown>;
   created_at: string;
 }
 

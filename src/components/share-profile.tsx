@@ -49,28 +49,28 @@ export function ShareProfile({ username, name, bio }: ShareProfileProps) {
       toast.success("Link copied to clipboard!");
 
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy link");
     }
   };
 
   const shareOnTwitter = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-      shareText
+      shareText,
     )}&url=${encodeURIComponent(profileUrl)}`;
     window.open(url, "_blank", "width=550,height=420");
   };
 
   const shareOnLinkedIn = () => {
     const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
-      profileUrl
+      profileUrl,
     )}`;
     window.open(url, "_blank", "width=550,height=420");
   };
 
   const shareOnFacebook = () => {
     const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-      profileUrl
+      profileUrl,
     )}`;
     window.open(url, "_blank", "width=550,height=420");
   };
@@ -90,8 +90,9 @@ export function ShareProfile({ username, name, bio }: ShareProfileProps) {
           url: profileUrl,
         });
         toast.success("Shared successfully!");
-      } catch (err) {
+      } catch (error) {
         // User cancelled share
+        const err = error as { name?: string };
         if (err.name !== "AbortError") {
           toast.error("Failed to share");
         }
@@ -109,7 +110,7 @@ export function ShareProfile({ username, name, bio }: ShareProfileProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Share {name}'s Profile</DialogTitle>
+          <DialogTitle>Share {name}&apos;s Profile</DialogTitle>
           <DialogDescription>
             Share this profile analysis with others
           </DialogDescription>
@@ -183,16 +184,17 @@ export function ShareProfile({ username, name, bio }: ShareProfileProps) {
           </div>
 
           {/* Native Share (Mobile) */}
-          {typeof navigator !== "undefined" && navigator.share && (
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={handleNativeShare}
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              Share via...
-            </Button>
-          )}
+          {typeof navigator !== "undefined" &&
+            typeof navigator.share === "function" && (
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={handleNativeShare}
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Share via...
+              </Button>
+            )}
 
           {/* QR Code Option (Future Enhancement) */}
           <div className="pt-2 border-t">

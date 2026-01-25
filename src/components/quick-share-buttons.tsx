@@ -21,7 +21,7 @@ export function QuickShareButtons({ username, name }: QuickShareButtonsProps) {
     try {
       await navigator.clipboard.writeText(profileUrl);
       toast.success("Link copied!");
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy");
     }
   };

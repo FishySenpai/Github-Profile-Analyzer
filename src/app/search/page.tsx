@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -22,6 +23,17 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Search, MapPin, Code, TrendingUp, Users } from "lucide-react";
 
+interface GitHubUser {
+  login: string;
+  avatar_url: string;
+  name?: string;
+  location?: string;
+  bio?: string;
+  followers: number;
+  public_repos: number;
+  url: string;
+}
+
 export default function SearchPage() {
   const router = useRouter();
   const [searchCriteria, setSearchCriteria] = useState({
@@ -33,15 +45,15 @@ export default function SearchPage() {
     sortBy: "best-match",
   });
 
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<GitHubUser[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [displayedCount, setDisplayedCount] = useState(12); // Show 12 initially
+  const [displayedCount, setDisplayedCount] = useState(12);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const searchProfiles = async () => {
     setLoading(true);
-    setDisplayedCount(12); // Reset to initial count
+    setDisplayedCount(12);
 
     try {
       // Build GitHub search query
@@ -68,13 +80,13 @@ export default function SearchPage() {
       // Fetch up to 100 users (GitHub API limit per page)
       const response = await fetch(
         `https://api.github.com/search/users?q=${encodeURIComponent(
-          query
+          query,
         )}&per_page=100&sort=${searchCriteria.sortBy}`,
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_GITHUB_TOKEN}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -84,17 +96,17 @@ export default function SearchPage() {
 
         // Fetch detailed info for users in batches
         const detailedUsers = await Promise.all(
-          data.items.map(async (user) => {
+          data.items.map(async (user: { url: string }) => {
             const userResponse = await fetch(user.url, {
               headers: {
                 Authorization: `Bearer ${process.env.NEXT_PUBLIC_GITHUB_TOKEN}`,
               },
             });
             return userResponse.json();
-          })
+          }),
         );
 
-        setSearchResults(detailedUsers);
+        setSearchResults(detailedUsers as GitHubUser[]);
       }
     } catch (error) {
       console.error("Search error:", error);
@@ -297,9 +309,11 @@ export default function SearchPage() {
                 >
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-4">
-                      <img
+                      <Image
                         src={user.avatar_url}
                         alt={user.login}
+                        width={64}
+                        height={64}
                         className="w-16 h-16 rounded-full"
                       />
                       <div className="flex-1">
