@@ -169,28 +169,28 @@ export default function HomePage() {
     router.push(`/profile/${user.login}`);
   };
 
-  const fetchProfile = async () => {
-    if (!username.trim()) {
-      toast.error("Please enter a GitHub username");
-      return;
-    }
+const fetchProfile = async () => {
+  if (!username.trim()) {
+    toast.error("Please enter a GitHub username");
+    return;
+  }
 
-    setLoading(true);
-    setShowSuggestions(false);
+  setLoading(true);
+  setShowSuggestions(false);
 
-    try {
-      toast.loading(`Analyzing ${username}'s profile...`, {
-        id: "analyzing",
-      });
-      router.push(`/profile/${username}`);
-    } catch {
-      toast.error("Failed to fetch profile. Please try again.", {
-        id: "analyzing",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    toast.loading(`Analyzing ${username}'s profile...`, {
+      id: "analyzing",
+    });
+    await router.push(`/profile/${username}`);
+    // No need to setLoading(false) here, navigation will unmount the component
+  } catch {
+    toast.error("Failed to fetch profile. Please try again.", {
+      id: "analyzing",
+    });
+    setLoading(false);
+  }
+};
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
@@ -251,7 +251,7 @@ export default function HomePage() {
           </Badge>
           <h1 className="text-5xl md:text-6xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
             Unlock insights from
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-fuchsia-400">
               {" "}
               GitHub profiles
             </span>
@@ -350,7 +350,7 @@ export default function HomePage() {
                 {loading ? (
                   <span className="mr-2 h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin inline-block" />
                 ) : (
-                  <Search className="h-4 w-4 mr-2" />
+                  <Search className="h-4 w-4 " />
                 )}
                 Analyze
               </Button>
